@@ -1,0 +1,17 @@
+services:
+  chart-desk:
+    build: .
+    image: chart-desk:0.1.0
+    container_name: chart-desk
+    ports:
+      - "${PORT:-4173}:4173"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 4173
+      DESK_DATA_DIR: /app/data
+      DESK_TOKEN: ${DESK_TOKEN:-}
+    volumes:
+      # Live long/short approval lines — push with:
+      #   .venv/bin/python chart-desk/scripts/export_desk.py --push http://127.0.0.1:4173
+      - ./data:/app/data
+    restart: unless-stopped

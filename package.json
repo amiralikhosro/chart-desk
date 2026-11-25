@@ -1,0 +1,31 @@
+{
+  "name": "chart-desk",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "start": "node server.mjs",
+    "preview": "vite preview",
+    "pack": "npm run build && node scripts/pack.mjs",
+    "docker:build": "npm run build && docker build -t chart-desk:0.1.0 .",
+    "docker:up": "npm run build && docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "desk:export": "cd .. && .venv/bin/python chart-desk/scripts/export_desk.py --out chart-desk/data/desk-latest.json",
+    "desk:push": "cd .. && .venv/bin/python chart-desk/scripts/export_desk.py --push http://127.0.0.1:4173"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "typescript": "~7.0.2",
+    "vite": "^8.3.6"
+  },
+  "dependencies": {
+    "@luxalgo/vela": "^0.10.14",
+    "@luxalgo/vela-pinets": "^0.3.4",
+    "http-proxy": "^1.18.1",
+    "pinets": "^0.13.1"
+  }
+}

@@ -1,0 +1,19 @@
+# Deploy Chart Desk on Render (free Web Service).
+# Dashboard → New → Blueprint → select this repo
+# (or New → Web Service → same build/start commands).
+services:
+  - type: web
+    name: chart-desk
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: HOST
+        value: "0.0.0.0"
+      # Optional: require token for PUT /desk-latest.json
+      # - key: DESK_TOKEN
+      #   generateValue: true

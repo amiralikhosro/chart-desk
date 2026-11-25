@@ -1,0 +1,11 @@
+[Unit]
+Description=Export trade_desk approval lines to Chart Desk Docker
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/ali/Desktop/personal/kronos
+# Always refresh data/ + public/, then PUT into the running container
+ExecStart=/home/ali/Desktop/personal/kronos/.venv/bin/python /home/ali/Desktop/personal/kronos/chart-desk/scripts/export_desk.py --out /home/ali/Desktop/personal/kronos/chart-desk/data/desk-latest.json --push http://127.0.0.1:4173
+TimeoutStartSec=900
+Nice=10
