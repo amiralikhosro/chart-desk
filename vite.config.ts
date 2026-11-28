@@ -1,6 +1,21 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
+import { createFeedHandler } from './feeds.mjs';
+
+/** News + calendar proxy (same handler as production `server.mjs`). */
+function feedsPlugin(): Plugin {
+  return {
+    name: 'chart-desk-feeds',
+    configureServer(server) {
+      const handle = createFeedHandler({ dataDir: 'data' });
+      server.middlewares.use((req, res, next) => {
+        if (!handle(req, res)) next();
+      });
+    },
+  };
+}
 
 export default defineConfig({
+  plugins: [feedsPlugin()],
   build: {
     chunkSizeWarningLimit: 2500,
     rollupOptions: {

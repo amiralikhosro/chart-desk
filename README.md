@@ -41,6 +41,14 @@ A TradingView-style chart terminal on [Vela](https://vela.dev/) — free live cr
 | `lbank:GOLDUSDT.P` | GOLDUSDT USDT-M perpetual | OKX XAU-USDT-SWAP | LBank lastPrice 1s |
 | `lbank:XAUTUSDT` | Spot Tether Gold | LBank public klines | LBank WebSocket |
 
+## News & Calendar
+
+Right sidebar → **News & Calendar** (newspaper icon).
+
+- **Headlines** from Cointelegraph, CoinDesk, Decrypt, The Block, CryptoSlate, Investing.com commodities, FX Empire, MarketWatch and the Federal Reserve. Filters: All / Crypto / Gold & Macro / the coin on the chart. Each headline is tagged (BTC, ETH, GOLD, FED, CPI…). Unread stories from the last 6h get a blue edge. Refreshes every 2 min.
+- **Calendar**: this week's ForexFactory calendar in your timezone, with impact (High/Medium/Low/Holiday) and currency filters (default USD, High + Medium), forecast and previous values, a "Now" line and a countdown to the next high-impact release. Next week's calendar appears on Sunday.
+- The browser can't read these feeds directly (no CORS), so the server proxies them at `/feeds/*` (`feeds.mjs`, used by both `server.mjs` and `vite dev`). News is cached 3 min and the calendar 60 min, in memory and in `data/feeds-cache.json`; a failed upstream serves the last good copy. ForexFactory blocks IPs that poll too often (HTTP 429), so the calendar makes one request per hour and only falls back to the XML copy when the JSON one fails.
+
 ## Develop
 
 ```bash

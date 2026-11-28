@@ -25,3 +25,6 @@ chart-desk-*.tar.gz
 *.sln
 *.sw?
 data/
+
+# Feed proxy cache
+data/feeds-cache.json

@@ -4,6 +4,7 @@ import { PineWorkerEngine } from '@luxalgo/vela-pinets';
 import { DEFAULT_INDICATORS } from './indicators';
 import { tradingViewTheme } from './theme/tradingview';
 import { registerWatchlistPanel } from './panels/watchlist';
+import { registerNewsPanel } from './panels/news';
 import { registerPineEditor } from './panels/pine-editor';
 import { registerReplayAction } from './panels/replay';
 import {
@@ -58,6 +59,7 @@ onWatchlistChange(() => syncWatchlistQuotes());
 
 // Plugins must register before the workspace mounts
 registerWatchlistPanel();
+registerNewsPanel();
 registerPineEditor();
 registerReplayAction();
 registerViewportPersistence();
@@ -114,7 +116,7 @@ const ws = new VelaWorkspace('#chart', {
   },
   sidebar: {
     top: ['panels'],
-    bottom: ['desk.watchlist', 'desk.pine', 'objects', 'dataWindow', '|', 'actions'],
+    bottom: ['desk.watchlist', 'desk.news', 'desk.pine', 'objects', 'dataWindow', '|', 'actions'],
   },
   engines: {
     pine: () => new PineWorkerEngine(),

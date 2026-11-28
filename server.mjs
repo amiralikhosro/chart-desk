@@ -18,6 +18,7 @@ import {
 import { join, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import httpProxy from 'http-proxy';
+import { createFeedHandler } from './feeds.mjs';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const DIST = join(__dirname, 'dist');
@@ -44,6 +45,8 @@ try {
 } catch {
   /* ignore */
 }
+
+const feeds = createFeedHandler({ dataDir: DESK_DIR });
 
 const proxy = httpProxy.createProxyServer({ changeOrigin: true, secure: true });
 proxy.on('error', (err, _req, res) => {
@@ -187,6 +190,8 @@ const server = createServer((req, res) => {
     return;
   }
 
+  if (url.startsWith('/feeds/') && feeds(req, res)) return;
+
   if (url === '/desk-latest.json' || url === '/api/desk-latest') {
     if (method === 'GET' || method === 'HEAD') {
       serveDeskLatest(res);
@@ -220,4 +225,5 @@ server.listen(PORT, HOST, () => {
   console.log(`Chart Desk → http://${HOST === '0.0.0.0' ? '127.0.0.1' : HOST}:${PORT}/`);
   console.log(`Desk data  → ${DESK_FILE}`);
   console.log('LBank proxy → /lbank-api /lbank-perp /lbank-ws');
+  console.log('Feeds      → /feeds/news/<id> /feeds/calendar');
 });
