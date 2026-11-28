@@ -10,6 +10,12 @@ A TradingView-style chart terminal on [Vela](https://vela.dev/) — free live cr
 - **Bar Replay** — topbar button rewinds ~30 days and plays forward
 - Multi-chart layouts, drawings, indicators, alerts, data window
 - Defaults: EMA 20 / 50 + RSI 14 (MACD, Bollinger, Stoch, VWAP, EMA 200 in the picker)
+- **Paper Trading** (bottom panel) — balance, equity, realized / unrealized P&L; Positions, Orders, History tabs; edit TP / SL inline, close or reverse. Stored in the browser only, never sent to a broker
+- **Buy / Sell on the chart** — live price, quantity box; click opens the order ticket, **Shift+click** sends an instant market order. `Shift+B` / `Shift+S` open the ticket
+- **Order ticket** — Market / Limit / Stop, take profit and stop loss, value, risk, reward and R:R before you send
+- **Right-click the chart** → *Buy / Sell at this price…* (limit or stop is picked from where you clicked)
+- **Position lines** — avg price with live P&L, TP, SL and working orders drawn on the chart with tags
+- **Symbol details** under the watchlist — last price, change, day's range, volume, prev close, 1W / 1M / 3M / 6M / YTD / 1Y performance
 
 ## Gold on LBank
 

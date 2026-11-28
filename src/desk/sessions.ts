@@ -52,7 +52,7 @@ const INPUT_SCHEMA: InputSchema[] = [
     key: 'labels',
     title: 'Open labels',
     type: 'bool',
-    defval: true,
+    defval: false,
     group: 'Display',
   },
 ];
@@ -60,12 +60,6 @@ const INPUT_SCHEMA: InputSchema[] = [
 function bool(inputs: Record<string, InputValue>, key: string, fallback: boolean): boolean {
   const v = inputs[key];
   return typeof v === 'boolean' ? v : fallback;
-}
-
-function fmt(n: number): string {
-  if (n >= 1000) return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
-  if (n >= 1) return n.toFixed(2);
-  return n.toPrecision(4);
 }
 
 function activeSessions(inputs: Record<string, InputValue>): SessionDef[] {
@@ -86,7 +80,7 @@ function toBoxes(sessionBoxes: ReturnType<typeof buildSessionBoxes>['boxes']): D
     borderColor: b.lineColor,
     borderWidth: 1,
     borderStyle: 'solid' as const,
-    text: `${b.label}  H ${fmt(b.high)}  L ${fmt(b.low)}`,
+    text: '',
     textColor: b.markColor,
     textSize: 'tiny' as const,
     hAlign: 'left' as const,
@@ -206,7 +200,7 @@ class SessionsIndicator implements NativeIndicator {
     }
 
     const { boxes, marks } = buildSessionBoxes(win.from, win.to, bars, sessions);
-    const showLabels = bool(this.inputs, 'labels', true);
+    const showLabels = bool(this.inputs, 'labels', false);
     ctx.emit({
       boxes: toBoxes(boxes),
       labels: showLabels ? toLabels(marks) : [],

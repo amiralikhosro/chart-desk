@@ -17,13 +17,18 @@ import {
   registerSessionsIndicator,
   SESSIONS_INDICATOR_TYPE,
 } from './desk/sessions';
-import { BinanceProvider } from '@luxalgo/vela/providers/binance';
 import { CoinbaseProvider } from '@luxalgo/vela/providers/coinbase';
 import {
   CachedHyperliquidProvider,
   prefetchHyperliquid,
 } from './providers/cached-hyperliquid';
 import { LBankProvider } from './providers/lbank';
+import {
+  POSITIONS_INDICATOR_TYPE,
+  registerPositionsIndicator,
+} from './trading/positions-indicator';
+import { registerPaperTrading, startPaperPriceFeed } from './trading/trading-panel';
+import * as paper from './trading/paper-store';
 import { onHlQuotes, startHlQuotes } from './lib/hl-quotes';
 import {
   getWatchlist,
@@ -57,6 +62,9 @@ registerPineEditor();
 registerReplayAction();
 registerViewportPersistence();
 registerSessionsIndicator();
+registerPositionsIndicator();
+let wsRef: VelaWorkspace | null = null;
+registerPaperTrading(() => wsRef);
 
 // Pin desk symbols at the top of symbol search
 registerSymbolRanking((pool) => {
@@ -77,7 +85,6 @@ registerSymbolRanking((pool) => {
 
 const hlProvider = new CachedHyperliquidProvider();
 const lbankProvider = new LBankProvider();
-const binanceProvider = new BinanceProvider();
 const coinbaseProvider = new CoinbaseProvider();
 const PERSIST_KEY = 'chart-desk-tv-v2';
 const NATIVES_SEEDED_KEY = `${PERSIST_KEY}-natives`;
@@ -130,7 +137,6 @@ const ws = new VelaWorkspace('#chart', {
   providers: {
     hyperliquid: () => hlProvider,
     lbank: () => lbankProvider,
-    binance: () => binanceProvider,
     coinbase: () => coinbaseProvider,
   },
   animations: {
@@ -140,6 +146,8 @@ const ws = new VelaWorkspace('#chart', {
     intro: false,
   },
 });
+
+wsRef = ws;
 
 const titleFor = (symbol: string | undefined, close: number) => {
   const short = displaySymbol(symbol);
@@ -173,6 +181,9 @@ seedSessionsOnce(ws);
 clearLegacySessionDrawings(ws.chart);
 trimHlRangeChips(ws.root);
 bindViewportMemory(ws.chart);
+ensurePositionsOverlay(ws);
+ws.chart.on('market:changed', () => ensurePositionsOverlay(ws));
+startPaperPriceFeed(ws);
 
 // Warm cache gently after first paint (avoid HL 429 on boot)
 window.setTimeout(() => {
@@ -188,6 +199,7 @@ window.setTimeout(() => {
 const deskApi = {
   ws,
   draw: (coin = 'GOLD') => loadAndDrawDesk(ws, coin),
+  paper,
 };
 (window as unknown as { __chartDesk: typeof deskApi }).__chartDesk = deskApi;
 
@@ -282,5 +294,16 @@ function seedSessionsOnce(workspace: VelaWorkspace): void {
     localStorage.setItem(SESSIONS_SEEDED_KEY, '1');
   } catch {
     /* ignore */
+  }
+}
+
+/** Paper positions / orders overlay is always on (legend-less, owned by the trading panel). */
+function ensurePositionsOverlay(workspace: VelaWorkspace): void {
+  try {
+    if (!workspace.chart.presentNativeIndicators().includes(POSITIONS_INDICATOR_TYPE)) {
+      workspace.chart.addNativeIndicator(POSITIONS_INDICATOR_TYPE);
+    }
+  } catch (err) {
+    console.warn('[positions]', err);
   }
 }

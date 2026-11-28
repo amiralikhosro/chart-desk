@@ -9,6 +9,7 @@ import {
 } from '../desk/approvals';
 import { onHlQuotes, startHlQuotes } from '../lib/hl-quotes';
 import { fetchLbankQuote } from '../providers/lbank';
+import { mountSymbolDetails } from './symbol-details';
 import {
   addSection,
   addWatchItem,
@@ -214,6 +215,7 @@ export function registerWatchlistPanel(): void {
           <button type="button" class="desk-watch__col" data-sort="chg" title="Sort by change %">Chg %</button>
         </div>
         <ul class="desk-watch__list" role="listbox" aria-label="Watchlist symbols"></ul>
+        <div data-details></div>
         <div class="desk-watch__add-bar">
           <input class="desk-watch__add-input" type="text" placeholder="Add symbol…" spellcheck="false" autocomplete="off" aria-label="Add symbol" />
           <ul class="desk-watch__suggest" hidden role="listbox" aria-label="Symbol suggestions"></ul>
@@ -234,6 +236,8 @@ export function registerWatchlistPanel(): void {
       let lbankTimer: ReturnType<typeof setInterval> | null = null;
       let unsubMarket: (() => void) | undefined;
       let suggestIdx = -1;
+      const detailsHost = body.querySelector('[data-details]') as HTMLElement;
+      let offDetails: (() => void) | undefined;
 
       const PROVIDER_PREF = ['hyperliquid', 'lbank', 'binance', 'coinbase'];
 
@@ -892,6 +896,8 @@ export function registerWatchlistPanel(): void {
 
       return {
         onChart: (chart) => {
+          offDetails?.();
+          offDetails = mountSymbolDetails(detailsHost, () => chart);
           unsubMarket?.();
           syncActive();
           unsubMarket = chart.on('market:changed', () => {
@@ -922,6 +928,7 @@ export function registerWatchlistPanel(): void {
           if (!lbankTimer) lbankTimer = setInterval(() => void refreshLbankQuote(), 2_000);
         },
         destroy: () => {
+          offDetails?.();
           unsubMarket?.();
           unsubQuotes?.();
           unsubStore();
