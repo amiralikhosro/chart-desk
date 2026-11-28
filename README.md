@@ -41,9 +41,31 @@ A TradingView-style chart terminal on [Vela](https://vela.dev/) — free live cr
 | `lbank:GOLDUSDT.P` | GOLDUSDT USDT-M perpetual | OKX XAU-USDT-SWAP | LBank lastPrice 1s |
 | `lbank:XAUTUSDT` | Spot Tether Gold | LBank public klines | LBank WebSocket |
 
+## Your data lives on the server
+
+Everything the app remembers (layouts, alerts, the paper and practice accounts, watchlists and flags, journal notes, indicator templates, the workspace) is mirrored to the server in `data/state/` and shared by every browser and device that opens the desk. Newest change wins per item; changes made elsewhere show up live. The server also keeps the last 20 versions of each item in `data/state/.history/<key>/` (copy one back over `data/state/<key>.json` to restore). A browser that syncs for the first time keeps the data it already has. Journal screenshots are stored in `data/blobs/`.
+
+The dev server uses its own folder (`data/dev/`, or `DESK_DEV_DATA`), so testing never touches the real desk.
+
+## Alerts on the server and your phone
+
+The server evaluates the alerts itself every 4 s, so they fire with every browser closed; open browsers still show the popup and chime. For phone notifications install the free **ntfy** app, subscribe to a long random topic, and enter it under Alerts → *Phone notifications* (or set `NTFY_TOPIC`). *Send test* checks it end to end. The Alerts panel footer says whether the server is running them.
+
+## Practice in Bar Replay
+
+Start Bar Replay and the trading panel switches to a separate **practice account** (amber, "Practice · Bar Replay"): Buy / Sell, limits, stops and brackets trade the replayed bars at replay time, with limits and stops filling on each bar's wicks. Stopping the replay returns to the live paper account and toasts the session result. The practice account persists between sessions; *Reset* clears it.
+
+## Desk plan → paper order
+
+Top bar → **Desk plan** shows the trade desk's long and short plans for the charted coin (verdict, entry, stop, target, R:R, replay edge, how old the export is) and places either as a paper bracket in one click, sized so the stop loses your chosen % of equity (default 1 %). Entries beyond the market go in as stop orders.
+
+## Login (optional)
+
+Set `DESK_AUTH=user:password` (see `docker-compose.yml`) to require a login for the whole app, recommended if you open it from outside your own network. The desk exporter keeps pushing with `DESK_TOKEN`.
+
 ## Price alerts
 
-**Alt+A**, the top-bar **Alert** button, or right-click the chart / price scale → *Add alert at this price…*. Conditions: Crossing, Crossing Up, Crossing Down, Greater Than, Less Than; trigger *Only once* or *Once per minute*; expiry (open-ended, 1 hour … 1 month); message; sound; desktop notification. Active alerts draw a dashed amber line with a 🔔 tag on the chart. When one fires: a popup (bottom right, with *Open chart*), a chime, and a desktop notification if allowed. The **Alerts** side panel lists alerts (stop / restart, edit, remove) and the **Log** of everything that fired. Prices come from every feed the app already runs (chart, watchlist, quotes) and a 4 s poll for symbols nothing else is pricing. Alerts run while the app is open in a browser tab; they are stored in localStorage (`chart-desk-alerts-v1`).
+**Alt+A**, the top-bar **Alert** button, or right-click the chart / price scale → *Add alert at this price…*. Conditions: Crossing, Crossing Up, Crossing Down, Greater Than, Less Than; trigger *Only once* or *Once per minute*; expiry (open-ended, 1 hour … 1 month); message; sound; desktop notification. Active alerts draw a dashed amber line with a 🔔 tag on the chart. When one fires: a popup (bottom right, with *Open chart*), a chime, and a desktop notification if allowed. The **Alerts** side panel lists alerts (stop / restart, edit, remove) and the **Log** of everything that fired. Prices come from every feed the app already runs (chart, watchlist, quotes) and a 4 s poll for symbols nothing else is pricing. Select a horizontal line, ray or trend line and use the 🔔 button on its toolbar to alert on the line itself (a trend-line alert's level moves along the line).
 
 ## Screener
 

@@ -1,0 +1,118 @@
+/* Indicator templates menu (topbar "Templates") — TradingView dark */
+.desk-tpl {
+  position: fixed;
+  z-index: 1000;
+  width: 300px;
+  max-height: min(70vh, 520px);
+  display: flex;
+  flex-direction: column;
+  background: #1e222d;
+  color: #d1d4dc;
+  border: 1px solid #363a45;
+  border-radius: 6px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+  padding: 6px 0;
+  font-size: 13px;
+}
+.desk-tpl__title {
+  padding: 6px 14px 8px;
+  font-weight: 600;
+  color: #f0f3fa;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.desk-tpl__title span { font-weight: 400; font-size: 11px; color: #787b86; }
+.desk-tpl__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 14px;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.desk-tpl__item:hover:not(:disabled) { background: #2a2e39; color: #f0f3fa; }
+.desk-tpl__item:disabled { color: #50535e; cursor: default; }
+.desk-tpl__check input { accent-color: #2962ff; margin: 0; }
+.desk-tpl__sep { height: 1px; background: #2a2e39; margin: 6px 0; }
+.desk-tpl__label {
+  padding: 2px 14px 4px;
+  font-size: 11px;
+  color: #787b86;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.desk-tpl__list { overflow: auto; min-height: 0; }
+.desk-tpl__row { display: flex; align-items: center; padding-right: 6px; }
+.desk-tpl__row:hover { background: #2a2e39; }
+.desk-tpl__load {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 8px 6px 14px;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.desk-tpl__load span { color: #f0f3fa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.desk-tpl__load small { color: #787b86; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.desk-tpl__icon {
+  flex: none;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: #787b86;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  visibility: hidden;
+}
+.desk-tpl__row:hover .desk-tpl__icon,
+.desk-tpl__icon:focus-visible,
+.desk-tpl__del.is-confirm { visibility: visible; }
+.desk-tpl__icon:hover { color: #f0f3fa; background: #363a45; }
+.desk-tpl__del:hover,
+.desk-tpl__del.is-confirm { color: #f23645; }
+.desk-tpl__del.is-confirm { font-size: 11px; }
+.desk-tpl__empty { padding: 6px 14px 8px; color: #787b86; font-size: 12px; }
+.desk-tpl__edit { display: flex; gap: 6px; padding: 4px 14px; flex: 1; min-width: 0; }
+.desk-tpl__row .desk-tpl__edit { padding: 4px 0 4px 14px; }
+.desk-tpl__edit input {
+  flex: 1;
+  min-width: 0;
+  background: #131722;
+  color: #f0f3fa;
+  border: 1px solid #2962ff;
+  border-radius: 4px;
+  padding: 5px 8px;
+  font: inherit;
+  outline: none;
+}
+.desk-tpl__edit button {
+  background: #2962ff;
+  color: #fff;
+  border: 0;
+  border-radius: 4px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.desk-tpl__edit button:hover { background: #1e53e5; }
+@media (hover: none) {
+  .desk-tpl__icon { visibility: visible; }
+}

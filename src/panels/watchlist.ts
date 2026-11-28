@@ -11,6 +11,7 @@ import { onHlQuotes, startHlQuotes } from '../lib/hl-quotes';
 import { fetchLbankQuote } from '../providers/lbank';
 import { mountSymbolDetails } from './symbol-details';
 import { onPrice } from '../trading/paper-store';
+import './watchlist-flags.css';
 
 /** Coinbase Exchange 24h stats → last price + change since the 24h open. */
 async function fetchCoinbaseQuote(symbol: string): Promise<{ price: number; changePct: number } | null> {
@@ -34,6 +35,16 @@ import {
   createList,
   deleteList,
   exportActiveListTxt,
+  clearAllFlags,
+  FLAG_COLORS,
+  flagColorHex,
+  flagCounts,
+  getFlag,
+  getFlagFilter,
+  getFlaggedItems,
+  setFlag,
+  setFlagFilter,
+  type FlagColor,
   getActiveList,
   getActiveListId,
   getActiveListName,
@@ -85,9 +96,16 @@ function escapeAttr(s: string): string {
     .replace(/>/g, '&gt;');
 }
 
-function syncHlQuotes(): void {
+/** Items whose quotes the panel needs: the active list plus any flagged rows on view. */
+function syncHlQuotes(visible: WatchItem[] = []): void {
+  const seen = new Set<string>();
+  const items = [...getWatchlist(), ...visible].filter((w) => {
+    if (seen.has(w.symbol)) return false;
+    seen.add(w.symbol);
+    return true;
+  });
   startHlQuotes(
-    getWatchlist()
+    items
       .filter((w) => w.quote !== 'lbank' && w.hlCoin)
       .map((w) => ({
         symbol: w.symbol,
@@ -195,8 +213,25 @@ function openPrompt(
   });
 }
 
-function closeMenus(root: HTMLElement): void {
-  root.querySelectorAll('.desk-watch__menu, .desk-watch__ctx').forEach((el) => el.remove());
+function closeMenus(_root?: HTMLElement): void {
+  // Menus are appended to <body>, so sweep the document, not just the panel.
+  document.querySelectorAll('.desk-watch__menu, .desk-watch__ctx').forEach((el) => el.remove());
+}
+
+const FLAG_SVG =
+  '<svg viewBox="0 0 10 12" aria-hidden="true"><path d="M2 1v10.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M2.6 1.4h6L7 3.9l1.6 2.5h-6z" fill="currentColor"/></svg>';
+
+function flagName(id: FlagColor): string {
+  return FLAG_COLORS.find((c) => c.id === id)!.name;
+}
+
+/** Swatch row used by the flag picker and the row context menu. */
+function flagSwatchesHtml(current: FlagColor | null): string {
+  const dots = FLAG_COLORS.map(
+    (c) =>
+      `<button type="button" class="desk-flag__swatch${current === c.id ? ' is-current' : ''}" data-flag="${c.id}" style="--flag:${c.color}" title="${c.name}" aria-label="Flag ${c.name}">${FLAG_SVG}</button>`,
+  ).join('');
+  return `<div class="desk-flag__swatches" role="group" aria-label="Flag colour">${dots}</div>`;
 }
 
 export function registerWatchlistPanel(): void {
@@ -219,6 +254,7 @@ export function registerWatchlistPanel(): void {
             <span class="desk-watch__list-caret">▾</span>
           </button>
           <div class="desk-watch__head-actions">
+            <button type="button" class="desk-flag__clear" data-act="clear-flag-filter" title="Show all symbols" aria-label="Clear flag filter" hidden>Show all</button>
             <button type="button" class="desk-watch__icon-btn" data-act="add" title="Add symbol" aria-label="Add symbol">+</button>
             <button type="button" class="desk-watch__icon-btn" data-act="search" title="Symbol search" aria-label="Symbol search">⌕</button>
           </div>
@@ -255,6 +291,66 @@ export function registerWatchlistPanel(): void {
       let suggestIdx = -1;
       const detailsHost = body.querySelector('[data-details]') as HTMLElement;
       let offDetails: (() => void) | undefined;
+      const clearFilterBtn = body.querySelector('[data-act="clear-flag-filter"]') as HTMLButtonElement;
+
+      /** Rows on view: the active list, or a colour list while a flag filter is on. */
+      const currentItems = (): WatchItem[] => {
+        const f = getFlagFilter();
+        return f ? getFlaggedItems(f) : getWatchlist();
+      };
+      const findItem = (symbol: string): WatchItem | undefined =>
+        currentItems().find((w) => w.symbol === symbol) ?? getWatchlist().find((w) => w.symbol === symbol);
+
+      const paintFlag = (li: HTMLElement, symbol: string) => {
+        const f = getFlag(symbol);
+        const btn = li.querySelector('.desk-flag') as HTMLElement | null;
+        if (!btn) return;
+        btn.dataset.flag = f ?? '';
+        btn.style.setProperty('--flag', f ? flagColorHex(f) : '');
+        btn.title = f ? `${flagName(f)} flag — click to change` : 'Flag symbol';
+        li.dataset.flag = f ?? '';
+      };
+
+      /** Tiny colour picker under the row's flag marker. */
+      const openFlagPicker = (anchor: HTMLElement, symbol: string) => {
+        closeMenus();
+        const r = anchor.getBoundingClientRect();
+        const menu = document.createElement('div');
+        menu.className = 'desk-watch__ctx desk-flag__picker';
+        menu.setAttribute('role', 'menu');
+        menu.style.left = `${Math.max(4, Math.min(r.left, window.innerWidth - 220))}px`;
+        menu.style.top = `${Math.min(r.bottom + 2, window.innerHeight - 90)}px`;
+        const cur = getFlag(symbol);
+        menu.innerHTML = `${flagSwatchesHtml(cur)}${
+          cur ? '<button type="button" class="desk-watch__ctx-item" data-act="unflag">Remove flag</button>' : ''
+        }`;
+        const close = () => {
+          menu.remove();
+          document.removeEventListener('mousedown', onDoc, true);
+        };
+        const onDoc = (ev: MouseEvent) => {
+          if (!menu.contains(ev.target as Node)) close();
+        };
+        document.addEventListener('mousedown', onDoc, true);
+        menu.addEventListener('click', (e) => {
+          const t = e.target as HTMLElement;
+          const color = t.closest<HTMLElement>('[data-flag]')?.dataset.flag as FlagColor | undefined;
+          if (color) {
+            setFlag(symbol, color);
+            close();
+            return;
+          }
+          if (t.closest('[data-act="unflag"]')) {
+            setFlag(symbol, null);
+            close();
+          }
+        });
+        menu.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') close();
+        });
+        document.body.appendChild(menu);
+        menu.querySelector<HTMLElement>('.desk-flag__swatch')?.focus();
+      };
 
       const PROVIDER_PREF = ['hyperliquid', 'lbank', 'binance', 'coinbase'];
 
@@ -380,7 +476,7 @@ export function registerWatchlistPanel(): void {
         quoteCache.set(symbol, q);
         const li = rows.get(symbol);
         if (!li) return;
-        const item = getWatchlist().find((w) => w.symbol === symbol);
+        const item = findItem(symbol);
         if (!item) return;
         const priceEl = li.querySelector('.desk-watch__price') as HTMLElement;
         const chgEl = li.querySelector('.desk-watch__chg') as HTMLElement;
@@ -424,7 +520,7 @@ export function registerWatchlistPanel(): void {
       const refreshDesk = async (force = false) => {
         desk = await loadDeskLatest(force);
         paintFresh();
-        for (const item of getWatchlist()) {
+        for (const item of currentItems()) {
           const li = rows.get(item.symbol);
           if (!li) continue;
           applyDeskHint(li, item, desk, quoteCache.get(item.symbol)?.price);
@@ -464,23 +560,37 @@ export function registerWatchlistPanel(): void {
         menu.style.left = `${Math.min(x, window.innerWidth - 200)}px`;
         menu.style.top = `${Math.min(y, window.innerHeight - 240)}px`;
 
+        const filter = getFlagFilter();
         const items: { label: string; act: string; danger?: boolean }[] = isSection(entry)
           ? [
               { label: 'Rename section', act: 'rename-sec' },
               { label: 'Remove section', act: 'remove-sec', danger: true },
             ]
-          : [
-              { label: 'Add section above', act: 'section' },
-              { label: 'Rename…', act: 'edit' },
-              { label: 'Remove', act: 'remove', danger: true },
-            ];
+          : filter
+            ? [{ label: `Remove from ${flagName(filter)} list`, act: 'unflag', danger: true }]
+            : [
+                { label: 'Add section above', act: 'section' },
+                { label: 'Rename…', act: 'edit' },
+                { label: 'Remove', act: 'remove', danger: true },
+              ];
 
-        menu.innerHTML = items
-          .map(
-            (i) =>
-              `<button type="button" class="desk-watch__ctx-item${i.danger ? ' is-danger' : ''}" data-act="${i.act}">${i.label}</button>`,
-          )
-          .join('');
+        const flagNow = isSymbol(entry) ? getFlag(entry.symbol) : null;
+        const flagBlock = isSymbol(entry)
+          ? `<div class="desk-flag__ctx-label">Flag</div>${flagSwatchesHtml(flagNow)}${
+              flagNow && !filter
+                ? '<button type="button" class="desk-watch__ctx-item" data-act="unflag">Remove flag</button>'
+                : ''
+            }<div class="desk-watch__menu-sep"></div>`
+          : '';
+
+        menu.innerHTML =
+          flagBlock +
+          items
+            .map(
+              (i) =>
+                `<button type="button" class="desk-watch__ctx-item${i.danger ? ' is-danger' : ''}" data-act="${i.act}">${i.label}</button>`,
+            )
+            .join('');
 
         const onDoc = (ev: MouseEvent) => {
           if (!menu.contains(ev.target as Node)) {
@@ -491,7 +601,15 @@ export function registerWatchlistPanel(): void {
         document.addEventListener('mousedown', onDoc, true);
 
         menu.addEventListener('click', (e) => {
+          const color = (e.target as HTMLElement).closest<HTMLElement>('[data-flag]')?.dataset.flag;
+          if (color && isSymbol(entry)) {
+            menu.remove();
+            document.removeEventListener('mousedown', onDoc, true);
+            setFlag(entry.symbol, color as FlagColor);
+            return;
+          }
           const act = (e.target as HTMLElement).closest('[data-act]')?.getAttribute('data-act');
+          if (!act && !(e.target as HTMLElement).closest('button')) return;
           menu.remove();
           document.removeEventListener('mousedown', onDoc, true);
           if (!act) return;
@@ -501,6 +619,10 @@ export function registerWatchlistPanel(): void {
       };
 
       const handleCtx = async (act: string, entry: WatchEntry, _index: number) => {
+        if (act === 'unflag' && isSymbol(entry)) {
+          setFlag(entry.symbol, null);
+          return;
+        }
         if (act === 'section' && isSymbol(entry)) {
           const title = prompt('Section name', 'Section');
           if (title == null) return;
@@ -561,12 +683,14 @@ export function registerWatchlistPanel(): void {
         const li = document.createElement('li');
         li.className = 'desk-watch__row';
         li.role = 'option';
-        li.draggable = getSort() === 'manual';
+        const filtered = getFlagFilter() != null;
+        li.draggable = getSort() === 'manual' && !filtered;
         li.dataset.symbol = item.symbol;
         li.dataset.index = String(index);
         li.tabIndex = 0;
         const cached = quoteCache.get(item.symbol);
         li.innerHTML = `
+          <button type="button" class="desk-flag" tabindex="-1" aria-label="Flag symbol">${FLAG_SVG}</button>
           <div class="desk-watch__sym">
             <span class="desk-watch__label-row">
               ${iconHtml(item)}
@@ -579,8 +703,14 @@ export function registerWatchlistPanel(): void {
           <span class="desk-watch__chg">${
             cached ? `${cached.changePct > 0 ? '+' : ''}${cached.changePct.toFixed(2)}%` : '—'
           }</span>
-          <button type="button" class="desk-watch__remove" title="Remove" aria-label="Remove">×</button>
+          <button type="button" class="desk-watch__remove" title="${filtered ? 'Remove flag' : 'Remove'}" aria-label="${filtered ? 'Remove flag' : 'Remove'}">×</button>
         `;
+        paintFlag(li, item.symbol);
+        li.querySelector('.desk-flag')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openFlagPicker(e.currentTarget as HTMLElement, item.symbol);
+        });
+        li.querySelector('.desk-flag')?.addEventListener('mousedown', (e) => e.stopPropagation());
         if (cached) {
           (li.querySelector('.desk-watch__chg') as HTMLElement).dataset.dir =
             cached.changePct >= 0 ? 'up' : 'down';
@@ -593,7 +723,7 @@ export function registerWatchlistPanel(): void {
           ctx.setSymbol(item.symbol);
         };
         li.addEventListener('click', (e) => {
-          if ((e.target as HTMLElement).closest('.desk-watch__remove')) return;
+          if ((e.target as HTMLElement).closest('.desk-watch__remove, .desk-flag')) return;
           select();
         });
         li.addEventListener('keydown', (e) => {
@@ -603,11 +733,16 @@ export function registerWatchlistPanel(): void {
           }
           if (e.key === 'Delete' || e.key === 'Backspace') {
             e.preventDefault();
-            if (getWatchlist().length > 1) removeWatchItem(item.symbol);
+            if (getFlagFilter()) setFlag(item.symbol, null);
+            else if (getWatchlist().length > 1) removeWatchItem(item.symbol);
           }
         });
         li.querySelector('.desk-watch__remove')?.addEventListener('click', (e) => {
           e.stopPropagation();
+          if (getFlagFilter()) {
+            setFlag(item.symbol, null);
+            return;
+          }
           if (getWatchlist().length <= 1) {
             toast('Keep at least one symbol', 'error');
             return;
@@ -620,6 +755,10 @@ export function registerWatchlistPanel(): void {
         });
 
         li.addEventListener('dragstart', (e) => {
+          if (getFlagFilter()) {
+            e.preventDefault();
+            return;
+          }
           dragFrom = index;
           li.classList.add('is-dragging');
           e.dataTransfer?.setData('text/plain', String(index));
@@ -632,13 +771,14 @@ export function registerWatchlistPanel(): void {
         });
         li.addEventListener('dragover', (e) => {
           e.preventDefault();
-          if (getSort() !== 'manual') return;
+          if (getSort() !== 'manual' || getFlagFilter()) return;
           li.classList.add('is-drop');
         });
         li.addEventListener('dragleave', () => li.classList.remove('is-drop'));
         li.addEventListener('drop', (e) => {
           e.preventDefault();
           li.classList.remove('is-drop');
+          if (getFlagFilter()) return;
           const to = Number(li.dataset.index);
           if (dragFrom >= 0 && Number.isFinite(to)) reorderEntries(dragFrom, to);
         });
@@ -675,10 +815,17 @@ export function registerWatchlistPanel(): void {
       };
 
       const renderList = () => {
-        listNameEl.textContent = getActiveListName();
+        const filter = getFlagFilter();
+        if (filter) {
+          listNameEl.innerHTML = `<span class="desk-flag__name-dot" style="--flag:${flagColorHex(filter)}">${FLAG_SVG}</span>${flagName(filter)} list`;
+        } else {
+          listNameEl.textContent = getActiveListName();
+        }
+        clearFilterBtn.hidden = !filter;
+        body.dataset.flagFilter = filter ?? '';
         paintSortHeaders();
-        const doc = getActiveList();
-        const ordered = sortedEntries(doc.entries, getSort());
+        const entries: WatchEntry[] = filter ? getFlaggedItems(filter) : getActiveList().entries;
+        const ordered = sortedEntries(entries, getSort());
         list.replaceChildren();
         rows.clear();
         for (const { entry, index } of ordered) {
@@ -690,12 +837,18 @@ export function registerWatchlistPanel(): void {
             rows.set(entry.symbol, li);
           }
         }
+        if (filter && !rows.size) {
+          const empty = document.createElement('li');
+          empty.className = 'desk-flag__empty';
+          empty.textContent = `No ${flagName(filter).toLowerCase()}-flagged symbols yet. Click the flag at the left of a row to add one.`;
+          list.appendChild(empty);
+        }
         syncActive();
-        syncHlQuotes();
+        syncHlQuotes(filter ? currentItems() : []);
       };
 
       const refreshLbankQuote = async () => {
-        const items = getWatchlist().filter(
+        const items = currentItems().filter(
           (w) => w.quote === 'lbank' || w.symbol.toLowerCase().startsWith('coinbase:'),
         );
         if (!items.length) return;
@@ -719,7 +872,8 @@ export function registerWatchlistPanel(): void {
         menu.style.top = `${rect.bottom + 4}px`;
 
         const lists = getLists();
-        const activeId = getActiveListId();
+        const filter = getFlagFilter();
+        const activeId = filter ? '' : getActiveListId();
         const listRows = lists
           .map(
             (l) => `
@@ -730,8 +884,22 @@ export function registerWatchlistPanel(): void {
           )
           .join('');
 
+        const counts = flagCounts();
+        const flagRows = FLAG_COLORS.map(
+          (c) => `
+          <button type="button" class="desk-watch__menu-item desk-flag__menu-item${filter === c.id ? ' is-active' : ''}" data-act="flag-filter" data-id="${c.id}">
+            <span class="desk-flag__menu-name"><span class="desk-flag__name-dot" style="--flag:${c.color}">${FLAG_SVG}</span>${c.name} list</span>
+            <span class="desk-watch__menu-count">${counts[c.id]}</span>
+          </button>`,
+        ).join('');
+
         menu.innerHTML = `
           <div class="desk-watch__menu-section">${listRows}</div>
+          <div class="desk-watch__menu-sep"></div>
+          <div class="desk-flag__ctx-label">Flagged lists</div>
+          <div class="desk-watch__menu-section">${flagRows}</div>
+          ${filter ? '<button type="button" class="desk-watch__menu-item" data-act="flag-filter-clear">Show all symbols</button>' : ''}
+          <button type="button" class="desk-watch__menu-item" data-act="flags-clear">Clear all flags…</button>
           <div class="desk-watch__menu-sep"></div>
           <button type="button" class="desk-watch__menu-item" data-act="create">Create new list…</button>
           <button type="button" class="desk-watch__menu-item" data-act="rename">Rename…</button>
@@ -766,7 +934,27 @@ export function registerWatchlistPanel(): void {
 
       const handleListMenu = async (act: string, id?: string) => {
         if (act === 'switch' && id) {
+          if (getFlagFilter()) setFlagFilter(null);
           setActiveList(id);
+          return;
+        }
+        if (act === 'flag-filter' && id) {
+          setFlagFilter(getFlagFilter() === id ? null : (id as FlagColor));
+          return;
+        }
+        if (act === 'flag-filter-clear') {
+          setFlagFilter(null);
+          return;
+        }
+        if (act === 'flags-clear') {
+          const n = Object.values(flagCounts()).reduce((a, b) => a + b, 0);
+          if (!n) {
+            toast('No flagged symbols', 'info');
+            return;
+          }
+          if (!confirm(`Remove all ${n} flags?`)) return;
+          clearAllFlags();
+          toast('Flags cleared', 'info');
           return;
         }
         if (act === 'create') {
@@ -857,6 +1045,7 @@ export function registerWatchlistPanel(): void {
       };
 
       body.querySelector('[data-act="list-menu"]')?.addEventListener('click', openListMenu);
+      clearFilterBtn.addEventListener('click', () => setFlagFilter(null));
       body.querySelector('[data-act="search"]')?.addEventListener('click', () => {
         addMode = false;
         ctx.openSymbolSearch();

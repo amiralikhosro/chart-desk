@@ -1,0 +1,153 @@
+/* Watchlist colour flags (TradingView "Flag symbol") */
+
+.desk-flag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #50535e;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 80ms ease;
+}
+
+.desk-flag svg {
+  width: 9px;
+  height: 11px;
+  display: block;
+}
+
+.desk-watch__row:hover .desk-flag,
+.desk-watch__row:focus-within .desk-flag {
+  opacity: 1;
+}
+
+.desk-flag:hover,
+.desk-flag:focus-visible {
+  color: #b2b5be;
+  outline: none;
+}
+
+.desk-flag[data-flag]:not([data-flag='']) {
+  opacity: 1;
+  color: var(--flag);
+}
+
+.desk-flag[data-flag]:not([data-flag='']):hover {
+  filter: brightness(1.2);
+}
+
+/* Picker + context-menu swatches */
+.desk-flag__picker {
+  min-width: 0;
+}
+
+.desk-flag__swatches {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+}
+
+.desk-flag__swatch {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--flag);
+  cursor: pointer;
+}
+
+.desk-flag__swatch svg {
+  width: 11px;
+  height: 13px;
+}
+
+.desk-flag__swatch:hover,
+.desk-flag__swatch:focus-visible {
+  background: #2a2e39;
+  outline: none;
+}
+
+.desk-flag__swatch.is-current {
+  border-color: #2962ff;
+  background: rgba(41, 98, 255, 0.12);
+}
+
+.desk-flag__ctx-label {
+  padding: 6px 10px 2px;
+  font-size: 11px;
+  color: #787b86;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Flagged-list entries in the list menu and the header */
+.desk-flag__menu-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.desk-flag__name-dot {
+  display: inline-flex;
+  color: var(--flag);
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+
+.desk-flag__menu-name .desk-flag__name-dot {
+  margin-right: 0;
+}
+
+.desk-flag__name-dot svg {
+  width: 9px;
+  height: 11px;
+}
+
+.desk-flag__clear {
+  border: 1px solid #2a2e39;
+  background: transparent;
+  color: #d1d4dc;
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.desk-flag__clear:hover,
+.desk-flag__clear:focus-visible {
+  background: #2a2e39;
+  color: #f0f3fa;
+  outline: none;
+}
+
+.desk-flag__clear[hidden] {
+  display: none;
+}
+
+.desk-flag__empty {
+  padding: 16px 12px;
+  color: #787b86;
+  font-size: 12px;
+  line-height: 1.5;
+  list-style: none;
+}
+
+@media (hover: none) {
+  .desk-flag {
+    opacity: 1;
+  }
+}

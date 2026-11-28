@@ -15,6 +15,11 @@ import { installEventMarks } from './lib/event-marks';
 import { registerScreenerPanel } from './panels/screener';
 import { registerOrderBookPanel } from './panels/orderbook';
 import { registerStrategyTester } from './trading/strategy-tester';
+import { registerDeskPlan } from './desk/plan-ticket';
+import { registerIndicatorTemplates } from './lib/indicator-templates';
+import { registerPwa } from './lib/pwa';
+import { registerJournalPanel } from './panels/journal';
+import { registerDerivativesIndicators } from './indicators/derivs';
 import {
   bindDeskDrawOnMarketChange,
   displaySymbol,
@@ -77,6 +82,11 @@ registerAlerts(() => wsRef);
 registerScreenerPanel();
 registerOrderBookPanel();
 registerStrategyTester(() => wsRef);
+registerDeskPlan(() => wsRef);
+registerIndicatorTemplates(() => wsRef);
+registerPwa();
+registerJournalPanel(() => wsRef);
+registerDerivativesIndicators();
 registerViewportPersistence();
 registerSessionsIndicator();
 registerPositionsIndicator();
@@ -126,12 +136,12 @@ const ws = new VelaWorkspace('#chart', {
   },
   timeframes: ['1', '5', '15', '30', '60', '120', '240', '1D', '1W', '1M'],
   topbar: {
-    left: ['symbol', 'timeframes', 'style', 'indicators', 'desk.compare', 'desk.alert.topbar', 'layout', 'undo-redo'],
+    left: ['symbol', 'timeframes', 'style', 'indicators', 'desk.templates', 'desk.compare', 'desk.alert.topbar', 'desk.plan', 'layout', 'undo-redo'],
     right: ['desk.layouts', 'desk.replay', 'actions', 'panels', 'screenshot', 'fullscreen'],
   },
   sidebar: {
     top: ['panels'],
-    bottom: ['desk.watchlist', 'desk.alerts', 'desk.screener', 'desk.orderbook', 'desk.news', 'desk.pine', 'objects', 'dataWindow', '|', 'actions'],
+    bottom: ['desk.watchlist', 'desk.alerts', 'desk.screener', 'desk.orderbook', 'desk.news', 'desk.journal', 'desk.pine', 'objects', 'dataWindow', '|', 'actions'],
   },
   engines: {
     pine: () => new PineWorkerEngine(),

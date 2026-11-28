@@ -7,11 +7,18 @@
   color: #d1d4dc;
   font-size: 12px;
   container-type: inline-size;
-  --scr-cols: minmax(0, 1fr) 78px 62px 60px;
+  --scr-cols: minmax(0, 1fr) 74px 58px 54px 62px;
 }
+/* Wider panel: open interest, then the day's high / low. */
 @container (min-width: 470px) {
   .desk-scr__head,
-  .desk-scr__row { --scr-cols: minmax(0, 1fr) 82px 62px 62px 74px 74px; }
+  .desk-scr__row { --scr-cols: minmax(0, 1fr) 82px 62px 62px 66px 62px; }
+  .desk-scr .desk-scr__th--oi,
+  .desk-scr .desk-scr__oi { display: block; }
+}
+@container (min-width: 600px) {
+  .desk-scr__head,
+  .desk-scr__row { --scr-cols: minmax(0, 1fr) 78px 58px 58px 66px 58px 70px 70px; }
   .desk-scr .desk-scr__th--high,
   .desk-scr .desk-scr__th--low,
   .desk-scr .desk-scr__hl { display: block; }
@@ -63,6 +70,8 @@
 .desk-scr__th:hover { color: #d1d4dc; }
 .desk-scr__th.is-sorted { color: #f0f3fa; }
 .desk-scr__th i { font-style: normal; font-size: 8px; margin-left: 3px; color: #2962ff; }
+.desk-scr__th--oi,
+.desk-scr__oi,
 .desk-scr__th--high,
 .desk-scr__th--low,
 .desk-scr__hl { display: none; }
@@ -96,6 +105,11 @@
 .desk-scr__chg[data-dir='down'] { color: #f23645; }
 .desk-scr__chg[data-dir='flat'] { color: #787b86; }
 .desk-scr__hl { color: #b2b5be; }
+.desk-scr__fund { font-size: 11px; }
+.desk-scr__fund[data-dir='up'] { color: #089981; }
+.desk-scr__fund[data-dir='down'] { color: #f23645; }
+.desk-scr__fund[data-dir='flat'] { color: #787b86; }
+.desk-scr__oi { color: #b2b5be; }
 
 .desk-scr__empty { padding: 24px 12px; color: #787b86; text-align: center; }
 .desk-scr__foot {

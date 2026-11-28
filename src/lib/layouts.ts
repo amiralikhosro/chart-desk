@@ -37,6 +37,13 @@ function load(): Store {
 let store = load();
 let wsRef: VelaWorkspace | null = null;
 
+// Saved on another device: pick it up.
+window.addEventListener('storage', (e) => {
+  if (e.key !== LS_KEY) return;
+  store = load();
+  refreshButton();
+});
+
 function persist(): boolean {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(store));

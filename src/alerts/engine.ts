@@ -8,6 +8,7 @@
  */
 import { fetchLbankQuote } from '../providers/lbank';
 import { fmtPrice, onAnyPrice, sameSymbol } from '../trading/paper-store';
+import { syncStatus } from '../lib/state-sync';
 
 export type AlertCondition = 'crossing' | 'crossing_up' | 'crossing_down' | 'greater' | 'less';
 export type AlertTrigger = 'once' | 'per_minute';
@@ -28,9 +29,21 @@ export type PriceAlert = {
   lastFiredAt?: number;
   /** Why an inactive alert stopped: fired (once), expired, or paused by hand. */
   stopped?: 'triggered' | 'expired' | 'paused';
+  /** Trend-line alert: the level moves along the line through these two anchors. */
+  line?: { t1: number; p1: number; t2: number; p2: number };
 };
 
-export type AlertLogEntry = { id: string; alertId: string; symbol: string; message: string; price: number; time: number };
+/** The alert's level now (moves with time for a trend-line alert). */
+export function levelAt(a: Pick<PriceAlert, 'price' | 'line'>, now = Date.now()): number {
+  const l = a.line;
+  if (l && l.t2 !== l.t1) return l.p1 + ((l.p2 - l.p1) * (now - l.t1)) / (l.t2 - l.t1);
+  return a.price;
+}
+
+/** True while the server's alert worker is running: it fires, this tab only shows. */
+const serverFires = (): boolean => !!syncStatus().serverAlerts;
+
+export type AlertLogEntry = { id: string; alertId: string; symbol: string; message: string; price: number; time: number; by?: string };
 
 type Store = { alerts: PriceAlert[]; log: AlertLogEntry[] };
 
@@ -68,6 +81,8 @@ function load(): Store {
 
 let store = load();
 const listeners = new Set<() => void>();
+/** Log entries already shown here (fires written by the server pop up once). */
+const seenLog = new Set(store.log.map((l) => l.id));
 /** Last price seen per alert (crossing needs the previous side). */
 const prevById = new Map<string, number>();
 /** When each symbol last got a price from any feed. */
@@ -189,6 +204,7 @@ function evaluate(symbol: string, price: number): void {
   if (!Number.isFinite(price) || price <= 0) return;
   seenAt.set(symbol, Date.now());
   lastPx.set(symbol, price);
+  if (serverFires()) return;
   const now = Date.now();
   let changed = false;
   for (const a of store.alerts) {
@@ -201,14 +217,16 @@ function evaluate(symbol: string, price: number): void {
     }
     const prev = prevById.get(a.id);
     prevById.set(a.id, price);
-    if (!hit(a, prev, price)) continue;
+    if (!hit({ ...a, price: levelAt(a, now) }, prev, price)) continue;
     if (a.trigger === 'per_minute' && a.lastFiredAt != null && now - a.lastFiredAt < 60_000) continue;
     a.lastFiredAt = now;
     if (a.trigger === 'once') {
       a.active = false;
       a.stopped = 'triggered';
     }
-    store.log.unshift({ id: uid(), alertId: a.id, symbol: a.symbol, message: a.message, price, time: now });
+    const entry = { id: uid(), alertId: a.id, symbol: a.symbol, message: a.message, price, time: now };
+    seenLog.add(entry.id);
+    store.log.unshift(entry);
     if (store.log.length > LOG_CAP) store.log.length = LOG_CAP;
     changed = true;
     fire(a, price);
@@ -313,7 +331,9 @@ export function logScriptAlert(symbol: string, source: string, message: string, 
     active: true,
     createdAt: Date.now(),
   };
-  store.log.unshift({ id: uid(), alertId: a.id, symbol, message: a.message, price, time: Date.now() });
+  const entry = { id: uid(), alertId: a.id, symbol, message: a.message, price, time: Date.now() };
+  seenLog.add(entry.id);
+  store.log.unshift(entry);
   if (store.log.length > LOG_CAP) store.log.length = LOG_CAP;
   save();
   fire(a, price);
@@ -332,6 +352,7 @@ async function hlMids(dex?: string): Promise<Record<string, string>> {
 }
 
 async function pollOnce(): Promise<void> {
+  if (serverFires()) return;
   const now = Date.now();
   // Expire stale alerts even when their symbol is quiet.
   let expired = false;
@@ -404,9 +425,42 @@ export function startAlertEngine(): void {
   window.addEventListener('storage', (e) => {
     if (e.key !== LS_KEY) return;
     store = load();
+    // Fires recorded elsewhere (the server worker, another device) pop up here too.
+    const fresh = store.log.filter((l) => !seenLog.has(l.id) && Date.now() - l.time < 120_000);
+    for (const l of store.log) seenLog.add(l.id);
+    for (const l of fresh.reverse()) {
+      const a = store.alerts.find((x) => x.id === l.alertId);
+      fire(a ?? { ...l, id: l.alertId, condition: 'crossing', trigger: 'once', expiresAt: null, sound: true, desktop: true, active: false, createdAt: l.time }, l.price);
+    }
     for (const fn of listeners) fn();
   });
 }
 
 /** Test hook: push a price through the engine. */
 export const feedAlertPrice = evaluate;
+
+// ── Phone notifications (ntfy) ───────────────────────────────────────────
+
+const NOTIFY_KEY = 'chart-desk-notify-v1';
+export type NotifySettings = { enabled: boolean; topic: string; server: string };
+
+export function getNotifySettings(): NotifySettings {
+  try {
+    const s = JSON.parse(localStorage.getItem(NOTIFY_KEY) ?? '{}') as Partial<NotifySettings>;
+    return { enabled: s.enabled !== false && !!s.topic, topic: s.topic ?? '', server: s.server || 'https://ntfy.sh' };
+  } catch {
+    return { enabled: false, topic: '', server: 'https://ntfy.sh' };
+  }
+}
+
+export function setNotifySettings(s: NotifySettings): void {
+  localStorage.setItem(NOTIFY_KEY, JSON.stringify(s));
+}
+
+export async function sendTestNotification(): Promise<boolean> {
+  try {
+    return (await fetch('/api/notify-test', { method: 'POST' })).ok;
+  } catch {
+    return false;
+  }
+}

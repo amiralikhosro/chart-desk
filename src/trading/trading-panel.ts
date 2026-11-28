@@ -31,6 +31,7 @@ import {
   type OrderType,
   type Side,
 } from './paper-store';
+import { getMode, onReplayBar, setMode } from './paper-store';
 
 const UI_KEY = 'chart-desk-paper-ui-v1';
 
@@ -304,6 +305,10 @@ function renderPanel(panel: HTMLElement): void {
   const acct = getAccount();
   const t = totals();
   const sum = panel.querySelector('[data-summary]') as HTMLElement;
+  const practice = getMode() === 'replay';
+  panel.classList.toggle('is-practice', practice);
+  const title = panel.querySelector('.desk-tp__title');
+  if (title) title.lastChild!.textContent = practice ? ' Practice · Bar Replay' : ' Paper Trading';
   sum.innerHTML = `
     <span>Balance <b>${fmtMoney(t.balance)}</b></span>
     <span>Equity <b>${fmtMoney(t.equity)}</b></span>
@@ -551,7 +556,25 @@ export function registerPaperTrading(getWs: () => VelaWorkspace | null): void {
 export function startPaperPriceFeed(ws: VelaWorkspace): void {
   ws.chart.on('bar', (bar) => {
     const sym = ws.chart.market.symbol;
-    if (sym) onPrice(sym, bar.close);
+    if (!sym) return;
+    if (getMode() === 'replay') onReplayBar(sym, bar);
+    else onPrice(sym, bar.close, 'chart');
+  });
+  // Bar Replay trades a separate practice account on the replayed bars, at replay time.
+  let cursor = Date.now();
+  ws.chart.on('replay:start', (e) => {
+    cursor = e.cursorTime;
+    setMode('replay', () => cursor);
+    toast('Practice mode: orders now trade the replay account at replay prices', 'info');
+  });
+  ws.chart.on('replay:step', (e) => {
+    cursor = e.cursorTime;
+  });
+  ws.chart.on('replay:end', () => {
+    const t = totals();
+    const n = getAccount().history.length;
+    if (getMode() === 'replay') toast(`Practice session ended · ${n} fills · realized ${fmtSigned(t.realized)}`, 'info');
+    setMode('live');
   });
   onHlQuotes((map) => {
     for (const [sym, q] of map) onPrice(sym, q.price);

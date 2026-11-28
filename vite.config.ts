@@ -1,5 +1,7 @@
 import { defineConfig, type Plugin } from 'vite';
 import { createFeedHandler } from './feeds.mjs';
+import { createStateHandler, createStateStore } from './state.mjs';
+import { createAlertWorker } from './alerts-server.mjs';
 
 /** News + calendar proxy (same handler as production `server.mjs`). */
 function feedsPlugin(): Plugin {
@@ -7,8 +9,15 @@ function feedsPlugin(): Plugin {
     name: 'chart-desk-feeds',
     configureServer(server) {
       const handle = createFeedHandler({ dataDir: 'data' });
+      // Dev keeps its own state folder so testing never touches the real desk's state.
+      const devDir = process.env.DESK_DEV_DATA || 'data/dev';
+      const store = createStateStore(`${devDir}/state`);
+      const worker = createAlertWorker({ store });
+      const api = createStateHandler({ dataDir: devDir, store, status: worker.status, notifyTest: worker.testNotify });
       server.middlewares.use((req, res, next) => {
-        if (!handle(req, res)) next();
+        if (handle(req, res)) return;
+        if ((req.url || '').startsWith('/api/') && api(req, res)) return;
+        next();
       });
     },
   };

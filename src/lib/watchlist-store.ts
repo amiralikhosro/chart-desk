@@ -534,3 +534,135 @@ export function importActiveListTxt(text: string): number {
   });
   return entries.filter(isSymbol).length;
 }
+
+/* ------------------------------------------------------------------
+ * Colour flags (TradingView "Flag symbol") — per symbol, shared by
+ * every list. A flag filter turns the panel into a colour list.
+ * ------------------------------------------------------------------ */
+
+export const FLAG_COLORS = [
+  { id: 'red', name: 'Red', color: '#f23645' },
+  { id: 'blue', name: 'Blue', color: '#2962ff' },
+  { id: 'green', name: 'Green', color: '#089981' },
+  { id: 'orange', name: 'Orange', color: '#ff9800' },
+  { id: 'purple', name: 'Purple', color: '#9c27b0' },
+  { id: 'cyan', name: 'Cyan', color: '#00bcd4' },
+  { id: 'pink', name: 'Pink', color: '#e91e63' },
+] as const;
+
+export type FlagColor = (typeof FLAG_COLORS)[number]['id'];
+
+const LS_FLAGS = 'chart-desk-flags-v1';
+const LS_FLAG_FILTER = 'chart-desk-flag-filter-v1';
+
+function isFlagColor(v: unknown): v is FlagColor {
+  return typeof v === 'string' && FLAG_COLORS.some((c) => c.id === v);
+}
+
+function loadFlags(): Record<string, FlagColor> {
+  const out: Record<string, FlagColor> = {};
+  try {
+    const raw = localStorage.getItem(LS_FLAGS);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      for (const [sym, color] of Object.entries(parsed as Record<string, unknown>)) {
+        if (isFlagColor(color)) out[sym] = color;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return out;
+}
+
+function loadFlagFilter(): FlagColor | null {
+  try {
+    const v = localStorage.getItem(LS_FLAG_FILTER);
+    return isFlagColor(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+let flags = loadFlags();
+let flagFilter = loadFlagFilter();
+
+function persistFlags(): void {
+  try {
+    localStorage.setItem(LS_FLAGS, JSON.stringify(flags));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function flagColorHex(id: FlagColor): string {
+  return FLAG_COLORS.find((c) => c.id === id)!.color;
+}
+
+export function getFlag(symbol: string): FlagColor | null {
+  return flags[symbol] ?? null;
+}
+
+export function getFlags(): Record<string, FlagColor> {
+  return { ...flags };
+}
+
+/** Flag a symbol (or clear it with `null`). */
+export function setFlag(symbol: string, color: FlagColor | null): void {
+  if (color) flags[symbol] = color;
+  else delete flags[symbol];
+  persistFlags();
+  emit();
+}
+
+export function clearAllFlags(): void {
+  flags = {};
+  persistFlags();
+  emit();
+}
+
+export function getFlagFilter(): FlagColor | null {
+  return flagFilter;
+}
+
+/** Show only symbols with this flag (a TradingView colour list); `null` clears it. */
+export function setFlagFilter(color: FlagColor | null): void {
+  flagFilter = color;
+  try {
+    if (color) localStorage.setItem(LS_FLAG_FILTER, color);
+    else localStorage.removeItem(LS_FLAG_FILTER);
+  } catch {
+    /* ignore */
+  }
+  emit();
+}
+
+/**
+ * Every symbol flagged `color`, across all lists (active list first, then the
+ * others in order), de-duplicated. Symbols flagged but no longer on any list are
+ * still listed (rebuilt from the symbol string) so a flag is never orphaned.
+ */
+export function getFlaggedItems(color: FlagColor): WatchItem[] {
+  const out: WatchItem[] = [];
+  const seen = new Set<string>();
+  const lists = [activeList(), ...store.lists.filter((l) => l.id !== store.activeId)];
+  for (const l of lists) {
+    for (const e of l.entries) {
+      if (!isSymbol(e) || flags[e.symbol] !== color || seen.has(e.symbol)) continue;
+      seen.add(e.symbol);
+      out.push({ ...e });
+    }
+  }
+  for (const [sym, c] of Object.entries(flags)) {
+    if (c !== color || seen.has(sym)) continue;
+    seen.add(sym);
+    out.push(normalizeItem({ symbol: sym }));
+  }
+  return out;
+}
+
+export function flagCounts(): Record<FlagColor, number> {
+  const counts = Object.fromEntries(FLAG_COLORS.map((c) => [c.id, 0])) as Record<FlagColor, number>;
+  for (const c of Object.values(flags)) counts[c] += 1;
+  return counts;
+}

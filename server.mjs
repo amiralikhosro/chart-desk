@@ -19,6 +19,8 @@ import { join, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import httpProxy from 'http-proxy';
 import { createFeedHandler } from './feeds.mjs';
+import { checkAuth, createStateHandler, createStateStore } from './state.mjs';
+import { createAlertWorker } from './alerts-server.mjs';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const DIST = join(__dirname, 'dist');
@@ -38,6 +40,7 @@ const MIME = {
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
   '.map': 'application/json',
+  '.webmanifest': 'application/manifest+json',
 };
 
 try {
@@ -47,6 +50,9 @@ try {
 }
 
 const feeds = createFeedHandler({ dataDir: DESK_DIR });
+const stateStore = createStateStore(join(DESK_DIR, 'state'));
+const alertWorker = createAlertWorker({ store: stateStore });
+const api = createStateHandler({ dataDir: DESK_DIR, store: stateStore, status: alertWorker.status, notifyTest: alertWorker.testNotify });
 
 const proxy = httpProxy.createProxyServer({ changeOrigin: true, secure: true });
 proxy.on('error', (err, _req, res) => {
@@ -70,7 +76,7 @@ function send(res, code, body, headers = {}) {
 function sendFile(res, filePath, extraHeaders = {}) {
   try {
     const data = readFileSync(filePath);
-    const isHtml = extname(filePath) === '.html';
+    const isHtml = extname(filePath) === '.html' || /(^|[\\/])(sw\.js|manifest\.webmanifest)$/.test(filePath);
     send(res, 200, data, {
       'Content-Type': MIME[extname(filePath)] || 'application/octet-stream',
       'Cache-Control': isHtml ? 'no-cache' : 'public, max-age=31536000, immutable',
@@ -175,6 +181,9 @@ if (!existsSync(join(DIST, 'index.html'))) {
 }
 
 const server = createServer((req, res) => {
+  // The desk exporter pushes with DESK_TOKEN; everything else needs the optional login.
+  const deskPush = DESK_TOKEN && (req.url || '').split('?')[0].match(/^\/(desk-latest\.json|api\/desk-latest)$/) && authorized(req);
+  if (!deskPush && !checkAuth(req, res)) return;
   const full = req.url || '/';
   const url = full.split('?')[0];
   const method = (req.method || 'GET').toUpperCase();
@@ -191,6 +200,7 @@ const server = createServer((req, res) => {
   }
 
   if (url.startsWith('/feeds/') && feeds(req, res)) return;
+  if (url.startsWith('/api/') && url !== '/api/desk-latest' && api(req, res)) return;
 
   if (url === '/desk-latest.json' || url === '/api/desk-latest') {
     if (method === 'GET' || method === 'HEAD') {
@@ -212,6 +222,13 @@ const server = createServer((req, res) => {
 });
 
 server.on('upgrade', (req, socket, head) => {
+  if (process.env.DESK_AUTH) {
+    const got = Buffer.from((req.headers.authorization || '').replace(/^Basic\s+/i, ''), 'base64').toString('utf8');
+    if (got !== process.env.DESK_AUTH) {
+      socket.destroy();
+      return;
+    }
+  }
   const full = req.url || '/';
   if (!full.startsWith('/lbank-ws')) {
     socket.destroy();
@@ -226,4 +243,5 @@ server.listen(PORT, HOST, () => {
   console.log(`Desk data  → ${DESK_FILE}`);
   console.log('LBank proxy → /lbank-api /lbank-perp /lbank-ws');
   console.log('Feeds      → /feeds/news/<id> /feeds/calendar');
+  console.log(`State      → ${join(DESK_DIR, 'state')} · alerts worker on · login ${process.env.DESK_AUTH ? 'required' : 'off'}`);
 });

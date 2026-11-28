@@ -62,6 +62,14 @@ export type OrderRequest = {
 };
 
 const LS_KEY = 'chart-desk-paper-v1';
+/** The practice account used while Bar Replay runs (TradingView's replay trading). */
+const LS_KEY_REPLAY = 'chart-desk-paper-replay-v1';
+
+export type PaperMode = 'live' | 'replay';
+let mode: PaperMode = 'live';
+/** Wall clock in live mode, the replay cursor in practice. */
+let clock: () => number = () => Date.now();
+const storageKey = (): string => (mode === 'replay' ? LS_KEY_REPLAY : LS_KEY);
 const DEFAULT_BALANCE = 100_000;
 const HISTORY_CAP = 500;
 
@@ -75,7 +83,8 @@ export function onAnyPrice(fn: (symbol: string, price: number) => void): () => v
   priceListeners.add(fn);
   return () => priceListeners.delete(fn);
 }
-const lastPrices = new Map<string, number>();
+const pricesByMode: Record<PaperMode, Map<string, number>> = { live: new Map(), replay: new Map() };
+let lastPrices = pricesByMode.live;
 let account: PaperAccount = load();
 
 function fresh(balance = DEFAULT_BALANCE): PaperAccount {
@@ -84,7 +93,7 @@ function fresh(balance = DEFAULT_BALANCE): PaperAccount {
 
 function load(): PaperAccount {
   try {
-    const raw = localStorage.getItem(LS_KEY);
+    const raw = localStorage.getItem(storageKey());
     if (!raw) return fresh();
     const doc = JSON.parse(raw) as PaperAccount;
     if (!Number.isFinite(doc.balance) || !Array.isArray(doc.positions)) return fresh();
@@ -102,7 +111,7 @@ function load(): PaperAccount {
 
 function save(): void {
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify(account));
+    localStorage.setItem(storageKey(), JSON.stringify(account));
   } catch {
     /* quota / private mode */
   }
@@ -179,7 +188,7 @@ function applyFill(
   let realized = 0;
 
   if (!pos) {
-    pos = { symbol, qty: d, avgPrice: price, openedAt: Date.now(), ...bracket };
+    pos = { symbol, qty: d, avgPrice: price, openedAt: clock(), ...bracket };
     account.positions.push(pos);
   } else if (Math.sign(pos.qty) === Math.sign(d)) {
     const total = Math.abs(pos.qty) + qty;
@@ -198,7 +207,7 @@ function applyFill(
       // Reversal: the remainder opens fresh at this price.
       pos.qty = next;
       pos.avgPrice = price;
-      pos.openedAt = Date.now();
+      pos.openedAt = clock();
       pos.tp = bracket?.tp;
       pos.sl = bracket?.sl;
     } else {
@@ -206,7 +215,7 @@ function applyFill(
     }
   }
 
-  account.history.unshift({ id: uid(), symbol, side, qty, price, time: Date.now(), realized, reason });
+  account.history.unshift({ id: uid(), symbol, side, qty, price, time: clock(), realized, reason });
   if (account.history.length > HISTORY_CAP) account.history.length = HISTORY_CAP;
   return realized;
 }
@@ -244,7 +253,7 @@ export function placeOrder(req: OrderRequest): PlaceResult {
     price: ref,
     tp: req.tp,
     sl: req.sl,
-    createdAt: Date.now(),
+    createdAt: clock(),
   });
   changed();
   // A limit already through the market fills on the next tick.
@@ -296,9 +305,14 @@ export function resetAccount(balance = DEFAULT_BALANCE): void {
   changed();
 }
 
-/** Feed a live price: updates P&L, fills working orders, triggers brackets. */
-export function onPrice(symbol: string, price: number): void {
+/**
+ * Feed a live price: updates P&L, fills working orders, triggers brackets.
+ * `source` 'chart' is the charted market's own bars (the only feed during replay);
+ * anything else (quotes, watchlist) is live-only and ignored while practising.
+ */
+export function onPrice(symbol: string, price: number, source: 'live' | 'chart' = 'live'): void {
   if (!Number.isFinite(price) || price <= 0) return;
+  if (mode === 'replay' && source !== 'chart') return;
   const prev = lastPrices.get(symbol);
   lastPrices.set(symbol, price);
   for (const fn of priceListeners) fn(symbol, price);
@@ -347,4 +361,38 @@ export function fmtMoney(n: number | undefined): string {
 export function fmtSigned(n: number | undefined): string {
   if (n == null || !Number.isFinite(n)) return '—';
   return `${n >= 0 ? '+' : '−'}${fmtMoney(Math.abs(n))}`;
+}
+
+/** Which account is active: live paper, or the Bar Replay practice account. */
+export function getMode(): PaperMode {
+  return mode;
+}
+
+/** Switch accounts (Bar Replay start / end). `now` drives fill times while practising. */
+export function setMode(next: PaperMode, now?: () => number): void {
+  if (next === mode) return;
+  mode = next;
+  clock = next === 'replay' && now ? now : () => Date.now();
+  lastPrices = pricesByMode[next];
+  if (next === 'replay') lastPrices.clear();
+  account = load();
+  for (const fn of listeners) fn();
+}
+
+/**
+ * A whole bar revealed by Bar Replay: walk it open → low/high → close (low first on an
+ * up bar) so limits, stops and brackets trigger on the wicks as they would intrabar.
+ */
+export function onReplayBar(symbol: string, bar: { open: number; high: number; low: number; close: number }): void {
+  const path = bar.close >= bar.open ? [bar.open, bar.low, bar.high, bar.close] : [bar.open, bar.high, bar.low, bar.close];
+  for (const px of path) onPrice(symbol, px, 'chart');
+}
+
+// Another device (or tab) changed the account: reload it.
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key !== storageKey()) return;
+    account = load();
+    for (const fn of listeners) fn();
+  });
 }

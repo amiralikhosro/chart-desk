@@ -57,3 +57,17 @@
 .desk-alp__acts button:hover { color: #f0f3fa; background: #363a45; }
 .desk-alp__empty { padding: 28px 16px; text-align: center; color: #787b86; line-height: 1.6; }
 .desk-alp__empty kbd { font: inherit; padding: 0 4px; border: 1px solid #434651; border-radius: 3px; }
+.desk-alp__foot { flex: none; border-top: 1px solid #2a2e39; padding: 8px 12px; font-size: 11px; color: #787b86; }
+.desk-alp__where { display: flex; align-items: center; gap: 6px; }
+.desk-alp__where i { width: 7px; height: 7px; border-radius: 50%; background: #787b86; flex: none; }
+.desk-alp__where i.is-on { background: #089981; }
+.desk-alp__phone { margin-top: 6px; }
+.desk-alp__phone summary { cursor: pointer; color: #b2b5be; }
+.desk-alp__phone p { margin: 6px 0; line-height: 1.4; }
+.desk-alp__phone label { display: grid; grid-template-columns: 48px 1fr; align-items: center; gap: 6px; margin: 4px 0; }
+.desk-alp__phone input[type="text"] { padding: 4px 6px; background: #131722; border: 1px solid #363a45; border-radius: 4px; color: #f0f3fa; font: inherit; outline: none; }
+.desk-alp__phone input[type="text"]:focus { border-color: #2962ff; }
+.desk-alp__phone-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.desk-alp__phone-row label { display: flex; margin: 0 auto 0 0; }
+.desk-alp__phone-row button { padding: 4px 10px; border: 1px solid #434651; border-radius: 4px; background: none; color: #d1d4dc; font: inherit; cursor: pointer; }
+.desk-alp__phone-row button:hover { border-color: #2962ff; }

@@ -7,6 +7,11 @@
  * the panel is visible.
  *   LBank        GET  /lbank-perp/cfd/openApi/v1/pub/marketData?productGroup=SwapU (app proxy)
  *   Hyperliquid  POST https://api.hyperliquid.xyz/info {type:'metaAndAssetCtxs'[, dex:'xyz']}
+ *
+ * Funding: Hyperliquid ctx `funding` (per 1 h), LBank `fundingRate` (per `positionFeeTime`
+ * seconds, 8 h). Shown per the venue's own period, sorted by the annualized rate so 1 h
+ * and 8 h venues compare fairly. OI (USD): Hyperliquid `openInterest` (coins) × `markPx`;
+ * LBank's public market data carries no open interest ("—").
  */
 import type { Vela } from '@luxalgo/vela';
 import { registerIcon, registerSidePanel } from '@luxalgo/vela/plugin';
@@ -29,11 +34,17 @@ type Row = {
   vol: number;
   high: number | null;
   low: number | null;
+  /** Current funding rate per period (fraction), null when the venue doesn't say. */
+  funding: number | null;
+  /** Hours per funding period (HL 1, LBank 8). */
+  fundingHours: number;
+  /** Open interest in USD notional. */
+  oi: number | null;
 };
 
 type Preset = 'all' | 'gainers' | 'losers' | 'active';
 type SourceFilter = 'all' | Venue;
-type SortKey = 'base' | 'price' | 'chg' | 'vol' | 'high' | 'low';
+type SortKey = 'base' | 'price' | 'chg' | 'vol' | 'funding' | 'oi' | 'high' | 'low';
 type Prefs = { preset: Preset; source: SourceFilter; sort: SortKey | null; dir: 1 | -1; query: string };
 
 const LS_KEY = 'chart-desk-screener-v1';
@@ -66,6 +77,8 @@ const COLS: Array<[SortKey, string]> = [
   ['price', 'Price'],
   ['chg', 'Chg %'],
   ['vol', 'Vol 24h'],
+  ['funding', 'Funding'],
+  ['oi', 'OI'],
   ['high', 'High'],
   ['low', 'Low'],
 ];
@@ -132,6 +145,8 @@ async function fetchLbank(): Promise<Row[]> {
       lowestPrice?: string;
       turnover?: string;
       instrumentStatus?: string;
+      fundingRate?: string;
+      positionFeeTime?: number;
     }>;
   };
   const out: Row[] = [];
@@ -143,6 +158,8 @@ async function fetchLbank(): Promise<Row[]> {
     const open = num(r.openPrice);
     const high = num(r.highestPrice);
     const low = num(r.lowestPrice);
+    const funding = num(r.fundingRate);
+    const feeSecs = num(r.positionFeeTime);
     out.push({
       symbol: `lbank:${r.symbol}.P`,
       base: r.symbol.replace(/USDT$/, ''),
@@ -153,13 +170,16 @@ async function fetchLbank(): Promise<Row[]> {
       vol: num(r.turnover) || 0,
       high: high > 0 ? high : null,
       low: low > 0 ? low : null,
+      funding: Number.isFinite(funding) ? funding : null,
+      fundingHours: feeSecs > 0 ? feeSecs / 3600 : 8,
+      oi: null,
     });
   }
   return out;
 }
 
 type HlMeta = { universe: Array<{ name: string; isDelisted?: boolean }> };
-type HlCtx = { markPx?: string; midPx?: string; prevDayPx?: string; dayNtlVlm?: string };
+type HlCtx = { markPx?: string; midPx?: string; prevDayPx?: string; dayNtlVlm?: string; funding?: string; openInterest?: string };
 
 async function fetchHl(dex?: string): Promise<Row[]> {
   const body: Record<string, string> = { type: 'metaAndAssetCtxs' };
@@ -183,6 +203,8 @@ async function fetchHl(dex?: string): Promise<Row[]> {
       return;
     }
     const prev = num(c?.prevDayPx);
+    const funding = num(c?.funding);
+    const oi = num(c?.openInterest) * price;
     out.push({
       symbol: `hyperliquid:${u.name}`,
       base,
@@ -193,9 +215,24 @@ async function fetchHl(dex?: string): Promise<Row[]> {
       vol: num(c?.dayNtlVlm) || 0,
       high: null,
       low: null,
+      funding: Number.isFinite(funding) ? funding : null,
+      fundingHours: 1,
+      oi: oi > 0 ? oi : null,
     });
   });
   return out;
+}
+
+/** Annualized funding (fraction), the fair sort key across 1 h and 8 h venues. */
+const fundingApr = (r: Row): number | null => (r.funding == null ? null : (r.funding / r.fundingHours) * 24 * 365);
+
+function fundingCell(r: Row): string {
+  if (r.funding == null) return '<span class="desk-scr__num desk-scr__fund" data-dir="flat">—</span>';
+  const pct = r.funding * 100;
+  const dir = pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat';
+  const apr = (fundingApr(r) ?? 0) * 100;
+  const tip = `${pct > 0 ? '+' : ''}${pct.toFixed(4)}% per ${r.fundingHours}h · ${apr > 0 ? '+' : ''}${apr.toFixed(1)}% APR`;
+  return `<span class="desk-scr__num desk-scr__fund" data-dir="${dir}" title="${esc(tip)}">${pct > 0 ? '+' : ''}${pct.toFixed(4)}%</span>`;
 }
 
 function iconUrl(base: string): string | null {
@@ -288,8 +325,8 @@ export function registerScreenerPanel(): void {
           const { key, dir } = s;
           list.sort((a, b) => {
             if (key === 'base') return a.base.localeCompare(b.base) * dir;
-            const av = a[key];
-            const bv = b[key];
+            const av = key === 'funding' ? fundingApr(a) : a[key];
+            const bv = key === 'funding' ? fundingApr(b) : b[key];
             if (av == null && bv == null) return 0;
             if (av == null) return 1;
             if (bv == null) return -1;
@@ -313,7 +350,13 @@ export function registerScreenerPanel(): void {
         headEl.innerHTML = COLS.map(([key, label]) => {
           const on = s?.key === key;
           const arrow = on ? (s!.dir === 1 ? '▲' : '▼') : '';
-          return `<button type="button" class="desk-scr__th desk-scr__th--${key}${on ? ' is-sorted' : ''}" data-sort="${key}" title="Sort by ${label}">${label}<i>${arrow}</i></button>`;
+          const tip =
+            key === 'funding'
+              ? 'Current funding rate per period (Hyperliquid 1h, LBank 8h); sorts by the annualized rate'
+              : key === 'oi'
+                ? 'Open interest, USD notional (Hyperliquid only)'
+                : `Sort by ${label}`;
+          return `<button type="button" class="desk-scr__th desk-scr__th--${key}${on ? ' is-sorted' : ''}" data-sort="${key}" title="${tip}">${label}<i>${arrow}</i></button>`;
         }).join('');
       }
 
@@ -337,6 +380,8 @@ export function registerScreenerPanel(): void {
                 <span class="desk-scr__num">${fmtPrice(r.price)}</span>
                 <span class="desk-scr__num desk-scr__chg" data-dir="${dir}">${r.chg > 0 ? '+' : ''}${r.chg.toFixed(2)}%</span>
                 <span class="desk-scr__num">${r.vol > 0 ? `$${fmtCompact(r.vol)}` : '—'}</span>
+                ${fundingCell(r)}
+                <span class="desk-scr__num desk-scr__oi">${r.oi != null ? `$${fmtCompact(r.oi)}` : '—'}</span>
                 <span class="desk-scr__num desk-scr__hl">${fmtPrice(r.high)}</span>
                 <span class="desk-scr__num desk-scr__hl">${fmtPrice(r.low)}</span>
               </div>`;

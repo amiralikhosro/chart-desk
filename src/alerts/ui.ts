@@ -5,7 +5,8 @@
  */
 import type { NativeIndicator, NativeIndicatorContext, PriceLine, DrawingLabel } from '@luxalgo/vela';
 import type { VelaWorkspace } from '@luxalgo/vela/workspace';
-import { registerIcon, registerNativeIndicator, registerSidePanel, registerWidgetAction } from '@luxalgo/vela/plugin';
+import { registerDrawingAction, registerIcon, registerNativeIndicator, registerSidePanel, registerWidgetAction } from '@luxalgo/vela/plugin';
+import { onSyncStatus } from '../lib/state-sync';
 import './alerts.css';
 import { fmtPrice } from '../trading/paper-store';
 import { getWatchlist } from '../lib/watchlist-store';
@@ -19,6 +20,10 @@ import {
   displaySymbol,
   getAlertLog,
   getAlerts,
+  getNotifySettings,
+  levelAt,
+  sendTestNotification,
+  setNotifySettings,
   logScriptAlert,
   lastSeenPrice,
   onAlertsChange,
@@ -94,7 +99,7 @@ class AlertLines implements NativeIndicator {
     const key = JSON.stringify(list.map((a) => [a.id, a.price, a.condition])) + last;
     if (key === this.key) return;
     this.key = key;
-    const priceLines: PriceLine[] = list.map((a) => ({
+    const priceLines: PriceLine[] = list.filter((a) => !a.line).map((a) => ({
       id: `alert-${a.id}`,
       paneId: '',
       price: a.price,
@@ -111,9 +116,9 @@ class AlertLines implements NativeIndicator {
             paneId: '',
             xloc: 'bar_time',
             x: last,
-            y: a.price,
+            y: levelAt(a),
             yloc: 'price',
-            text: `🔔 ${CONDITION_LABEL[a.condition]} ${fmtPrice(a.price)}`,
+            text: a.line ? `🔔 Trend line ${fmtPrice(levelAt(a))}` : `🔔 ${CONDITION_LABEL[a.condition]} ${fmtPrice(a.price)}`,
             style: 'label_right',
             color: LINE,
             textColor: '#131722',
@@ -145,13 +150,14 @@ const EXPIRY: Array<[string, number | null]> = [
   ['1 month', 30 * 86400_000],
 ];
 
-export function openAlertDialog(opts: { symbol?: string; price?: number; edit?: PriceAlert } = {}): void {
+export function openAlertDialog(opts: { symbol?: string; price?: number; edit?: PriceAlert; line?: PriceAlert['line'] } = {}): void {
   document.querySelector('.desk-adlg')?.remove();
   const edit = opts.edit;
+  const line = edit?.line ?? opts.line;
   const symbol = edit?.symbol ?? opts.symbol ?? wsRef?.chart.market.symbol ?? '';
   if (!symbol) return;
   const last = lastSeenPrice(symbol);
-  const price = edit?.price ?? (opts.price != null ? roundPrice(opts.price) : last != null ? roundPrice(last) : undefined);
+  const price = line ? roundPrice(levelAt({ price: 0, line })) : edit?.price ?? (opts.price != null ? roundPrice(opts.price) : last != null ? roundPrice(last) : undefined);
   // TradingView defaults to "Crossing"; at-cursor alerts read better as up/down.
   const condition: AlertCondition = edit?.condition ?? 'crossing';
   const symbols = [...new Set([symbol, ...getWatchlist().map((w) => w.symbol)])];
@@ -166,7 +172,7 @@ export function openAlertDialog(opts: { symbol?: string; price?: number; edit?: 
         <label>Condition<select name="condition">${(Object.keys(CONDITION_LABEL) as AlertCondition[])
           .map((c) => `<option value="${c}"${c === condition ? ' selected' : ''}>${CONDITION_LABEL[c]}</option>`)
           .join('')}</select></label>
-        <label>Value<input name="price" type="number" step="any" min="0" required value="${price ?? ''}"><small data-last>${last != null ? `Last ${esc(fmtPrice(last))}` : ''}</small></label>
+        <label>Value<input name="price" type="number" step="any" min="0" required value="${price ?? ''}"${line ? ' readonly title="Follows the trend line"' : ''}><small data-last>${line ? 'Trend line: the level moves with the line · ' : ''}${last != null ? `Last ${esc(fmtPrice(last))}` : ''}</small></label>
         <label>Trigger<select name="trigger">${(Object.keys(TRIGGER_LABEL) as AlertTrigger[])
           .map((t) => `<option value="${t}"${t === (edit?.trigger ?? 'once') ? ' selected' : ''}>${TRIGGER_LABEL[t]}</option>`)
           .join('')}</select></label>
@@ -241,6 +247,7 @@ export function openAlertDialog(opts: { symbol?: string; price?: number; edit?: 
       price: p,
       trigger: field<HTMLSelectElement>('trigger').value as AlertTrigger,
       expiresAt,
+      line,
       message: msg.value.trim() || defaultMessage({ symbol, condition, price: p }),
       sound: field<HTMLInputElement>('sound').checked,
       desktop: field<HTMLInputElement>('desktop').checked,
@@ -286,7 +293,17 @@ function registerAlertsPanel(): void {
           <button type="button" class="desk-alp__icon" data-act="add" title="Create alert (Alt+A)" aria-label="Create alert">+</button>
           <button type="button" class="desk-alp__icon" data-act="clear" title="" aria-label="Clear"></button>
         </div>
-        <div class="desk-alp__list" data-list></div>`;
+        <div class="desk-alp__list" data-list></div>
+        <div class="desk-alp__foot">
+          <div class="desk-alp__where" data-where></div>
+          <details class="desk-alp__phone" data-phone>
+            <summary>📱 Phone notifications (ntfy)</summary>
+            <p>Install the free <b>ntfy</b> app, subscribe to a long random topic name, and enter it here. Alerts fired by the server are pushed to your phone.</p>
+            <label>Topic <input type="text" data-ntfy-topic placeholder="e.g. desk-alerts-7f3k9q2x" spellcheck="false"></label>
+            <label>Server <input type="text" data-ntfy-server placeholder="https://ntfy.sh" spellcheck="false"></label>
+            <div class="desk-alp__phone-row"><label><input type="checkbox" data-ntfy-on> Enabled</label><button type="button" data-act="ntfy-save">Save</button><button type="button" data-act="ntfy-test">Send test</button></div>
+          </details>
+        </div>`;
       const list = body.querySelector<HTMLElement>('[data-list]')!;
       const clearBtn = body.querySelector<HTMLButtonElement>('[data-act="clear"]')!;
 
@@ -363,9 +380,49 @@ function registerAlertsPanel(): void {
         if (sym && sym !== ctx.chart.market.symbol) ctx.setSymbol(sym);
       });
 
+      const where = body.querySelector<HTMLElement>('[data-where]')!;
+      const offSync = onSyncStatus((st) => {
+        where.innerHTML = st.serverAlerts
+          ? '<i class="is-on"></i> Alerts run on the server: they fire even with this tab closed.'
+          : '<i></i> Server unreachable: alerts run in this tab only while it stays open.';
+      });
+      const fillPhone = (): void => {
+        const n = getNotifySettings();
+        body.querySelector<HTMLInputElement>('[data-ntfy-topic]')!.value = n.topic;
+        body.querySelector<HTMLInputElement>('[data-ntfy-server]')!.value = n.server;
+        body.querySelector<HTMLInputElement>('[data-ntfy-on]')!.checked = n.enabled;
+      };
+      fillPhone();
+      const savePhone = (): void => {
+        const topic = body.querySelector<HTMLInputElement>('[data-ntfy-topic]')!.value.trim();
+        setNotifySettings({
+          topic,
+          server: body.querySelector<HTMLInputElement>('[data-ntfy-server]')!.value.trim() || 'https://ntfy.sh',
+          enabled: body.querySelector<HTMLInputElement>('[data-ntfy-on]')!.checked && !!topic,
+        });
+      };
+      body.addEventListener('click', (e) => {
+        const act = (e.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
+        if (act === 'ntfy-save') {
+          savePhone();
+          ctx.toast('Phone notification settings saved', 'success');
+        } else if (act === 'ntfy-test') {
+          savePhone();
+          // Give the settings a moment to reach the server before it sends.
+          setTimeout(() => {
+            void sendTestNotification().then((ok) => ctx.toast(ok ? 'Test notification sent' : 'Could not send: is the server reachable?', ok ? 'success' : 'error'));
+          }, 1_500);
+        }
+      });
+      body.addEventListener('keydown', (e) => e.stopPropagation());
       const off = onAlertsChange(render);
       render();
-      return { destroy: off };
+      return {
+        destroy: () => {
+          off();
+          offSync();
+        },
+      };
     },
   });
 }
@@ -415,6 +472,23 @@ export function registerAlerts(getWs: () => VelaWorkspace | null): void {
     icon: 'desk-alert',
     order: 20,
     run: (ctx) => openAlertDialog({ symbol: ctx.chart.market.symbol }),
+  });
+
+  // "Add alert" on line drawings (TradingView's alert on a drawing).
+  const LEVEL = new Set(['hline', 'hray', 'crossline']);
+  const SLOPED = new Set(['trendline', 'ray', 'extendedline', 'infoline', 'trendangle']);
+  registerDrawingAction({
+    id: 'desk.alert.drawing',
+    icon: 'desk-alert',
+    label: 'Add alert on this line',
+    when: (d) => (LEVEL.has(d.type) && d.anchors.length >= 1) || (SLOPED.has(d.type) && d.anchors.length >= 2),
+    run: (ctx, d) => {
+      const symbol = ctx.chart.market.symbol;
+      if (LEVEL.has(d.type)) return openAlertDialog({ symbol, price: d.anchors[0]!.price });
+      const [a, b] = [d.anchors[0]!, d.anchors[1]!];
+      if (a.time === b.time) return openAlertDialog({ symbol, price: a.price });
+      openAlertDialog({ symbol, line: { t1: a.time, p1: a.price, t2: b.time, p2: b.price } });
+    },
   });
 
   window.addEventListener('keydown', (e) => {

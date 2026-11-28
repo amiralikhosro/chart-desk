@@ -10,6 +10,7 @@ import {
   fmtSigned,
   getAccount,
   onPaperChange,
+  onPrice,
   positionFor,
   sameSymbol,
   unrealized,
@@ -140,6 +141,10 @@ class PositionsIndicator implements NativeIndicator {
     const priceLines = lines(ctx.symbol);
     const bars = ctx.bars();
     const lastTime = bars[bars.length - 1]?.time;
+    // Seed the paper engine with the chart's own last close (needed the moment Bar
+    // Replay rewinds: no replay bar has been revealed yet).
+    const lastClose = bars[bars.length - 1]?.close;
+    if (lastClose != null) onPrice(ctx.symbol, lastClose, 'chart');
     const key = JSON.stringify(priceLines) + lastTime;
     if (!force && key === this.lastKey) return;
     this.lastKey = key;

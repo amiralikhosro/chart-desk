@@ -13,7 +13,7 @@ ENV NODE_ENV=production \
 RUN addgroup -S desk && adduser -S desk -G desk
 
 COPY dist ./dist
-COPY server.mjs feeds.mjs ./
+COPY server.mjs feeds.mjs state.mjs alerts-server.mjs ./
 COPY package.json ./
 # Minimal runtime deps for LBank reverse proxy (no npm install in image)
 COPY node_modules/http-proxy ./node_modules/http-proxy
