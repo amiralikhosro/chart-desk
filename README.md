@@ -41,6 +41,14 @@ A TradingView-style chart terminal on [Vela](https://vela.dev/) — free live cr
 | `lbank:GOLDUSDT.P` | GOLDUSDT USDT-M perpetual | OKX XAU-USDT-SWAP | LBank lastPrice 1s |
 | `lbank:XAUTUSDT` | Spot Tether Gold | LBank public klines | LBank WebSocket |
 
+## Compare symbols
+
+Top bar → **Compare**. Search any symbol (or pick from your watchlist) and press Enter; add as many as you like, remove them from the same dialog or the legend. Each compared market is drawn over the price pane, rebased so every line starts together at the left edge of the view (TradingView's percent-compare look). The legend and the tag at the right edge show each one's % change since that point; scroll or zoom and the start point follows. Each compare is an indicator with a Symbol / Color / Line width setting, so it is saved with the chart and with layouts.
+
+## Saved layouts
+
+Top-right button showing the layout name ("Unsaved" until you save). **Ctrl+S** saves; the menu has Save as new, Rename, Autosave (on by default: the current layout follows every change), load, delete (click ✕ twice), and Export / Import a layout as a `.chart-desk.json` file. A layout stores the full workspace: grid, symbols, timeframes, indicators and compares, drawings and chart settings. Layouts live in the browser's localStorage (`chart-desk-layouts-v1`), so export the ones you want to keep across browsers.
+
 ## News & Calendar
 
 Right sidebar → **News & Calendar** (newspaper icon).

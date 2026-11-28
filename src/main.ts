@@ -7,6 +7,8 @@ import { registerWatchlistPanel } from './panels/watchlist';
 import { registerNewsPanel } from './panels/news';
 import { registerPineEditor } from './panels/pine-editor';
 import { registerReplayAction } from './panels/replay';
+import { installCompareLegend, registerCompareAction, setCompareCharts } from './lib/compare';
+import { installLayouts, registerLayoutsAction } from './lib/layouts';
 import {
   bindDeskDrawOnMarketChange,
   displaySymbol,
@@ -62,6 +64,8 @@ registerWatchlistPanel();
 registerNewsPanel();
 registerPineEditor();
 registerReplayAction();
+registerCompareAction();
+registerLayoutsAction();
 registerViewportPersistence();
 registerSessionsIndicator();
 registerPositionsIndicator();
@@ -111,8 +115,8 @@ const ws = new VelaWorkspace('#chart', {
   },
   timeframes: ['1', '5', '15', '30', '60', '120', '240', '1D', '1W', '1M'],
   topbar: {
-    left: ['symbol', 'timeframes', 'style', 'indicators', 'layout', 'undo-redo'],
-    right: ['desk.replay', 'actions', 'alerts', 'panels', 'screenshot', 'fullscreen'],
+    left: ['symbol', 'timeframes', 'style', 'indicators', 'desk.compare', 'layout', 'undo-redo'],
+    right: ['desk.layouts', 'desk.replay', 'actions', 'alerts', 'panels', 'screenshot', 'fullscreen'],
   },
   sidebar: {
     top: ['panels'],
@@ -172,6 +176,9 @@ bindViewportMemory(ws.chart);
 ensurePositionsOverlay(ws);
 ws.chart.on('market:changed', () => ensurePositionsOverlay(ws));
 startPaperPriceFeed(ws);
+installLayouts(ws);
+setCompareCharts(() => ws.cells().map((c) => c.chart));
+installCompareLegend(() => ws.chart);
 
 // Warm cache gently after first paint (avoid HL 429 on boot)
 window.setTimeout(() => {
