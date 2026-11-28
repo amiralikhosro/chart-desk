@@ -1,0 +1,59 @@
+/* ── Create / edit alert dialog ─────────────────────────────────────── */
+.desk-adlg { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.45); display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh; }
+.desk-adlg__dialog { width: 440px; max-width: calc(100vw - 24px); background: #1e222d; color: #d1d4dc; border: 1px solid #363a45; border-radius: 6px; box-shadow: 0 12px 32px rgba(0,0,0,.5); font-size: 13px; }
+.desk-adlg__head { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid #2a2e39; }
+.desk-adlg__head b { font-size: 16px; color: #f0f3fa; }
+.desk-adlg__head button { background: none; border: 0; color: #787b86; cursor: pointer; font-size: 15px; }
+.desk-adlg__body { display: grid; gap: 10px; padding: 14px 16px; }
+.desk-adlg__body > label { display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 10px; color: #b2b5be; }
+.desk-adlg__body > label small { grid-column: 2; color: #787b86; font-size: 11px; margin-top: -4px; }
+.desk-adlg select, .desk-adlg input[type="number"], .desk-adlg textarea {
+  width: 100%; box-sizing: border-box; padding: 6px 8px; background: #131722; border: 1px solid #363a45; border-radius: 4px; color: #f0f3fa; font: inherit; outline: none;
+}
+.desk-adlg select:focus, .desk-adlg input:focus, .desk-adlg textarea:focus { border-color: #2962ff; }
+.desk-adlg textarea { resize: vertical; }
+.desk-adlg__checks { display: flex; gap: 18px; padding-left: 106px; color: #b2b5be; }
+.desk-adlg__checks input { accent-color: #2962ff; margin: 0 4px 0 0; vertical-align: -2px; }
+.desk-adlg__foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid #2a2e39; }
+.desk-adlg__foot button { padding: 7px 16px; border-radius: 4px; border: 1px solid #434651; background: none; color: #d1d4dc; font: inherit; cursor: pointer; }
+.desk-adlg__foot button.is-primary { background: #2962ff; border-color: #2962ff; color: #fff; }
+
+/* ── Fired-alert popups ─────────────────────────────────────────────── */
+.desk-alert-pop { position: fixed; right: 16px; bottom: 56px; z-index: 1100; display: flex; flex-direction: column; gap: 8px; width: 300px; }
+.desk-alert-pop__card { background: #1e222d; border: 1px solid #f7c548; border-radius: 6px; box-shadow: 0 10px 28px rgba(0,0,0,.55); padding: 10px 12px; color: #d1d4dc; font-size: 13px; animation: desk-pop-in .18s ease-out; }
+@keyframes desk-pop-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+.desk-alert-pop__head { display: flex; align-items: center; gap: 6px; }
+.desk-alert-pop__head b { color: #f0f3fa; flex: 1; }
+.desk-alert-pop__head button { background: none; border: 0; color: #787b86; cursor: pointer; }
+.desk-alert-pop__msg { margin: 6px 0 4px; color: #f0f3fa; }
+.desk-alert-pop__meta { font-size: 11px; color: #787b86; }
+.desk-alert-pop__actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px; }
+.desk-alert-pop__actions button { padding: 4px 10px; border-radius: 4px; border: 1px solid #434651; background: none; color: #d1d4dc; font: inherit; font-size: 12px; cursor: pointer; }
+.desk-alert-pop__actions [data-ok] { background: #2962ff; border-color: #2962ff; color: #fff; }
+
+/* ── Alerts side panel ──────────────────────────────────────────────── */
+.desk-alp__tabs { display: flex; align-items: center; gap: 2px; padding: 8px 10px 0; border-bottom: 1px solid #2a2e39; flex: none; }
+.desk-alp__tabs [data-tab] { background: none; border: 0; color: #b2b5be; font: inherit; font-weight: 600; padding: 6px 10px 8px; border-bottom: 2px solid transparent; cursor: pointer; }
+.desk-alp__tabs [data-tab].is-active { color: #f0f3fa; border-bottom-color: #2962ff; }
+.desk-alp__spacer { flex: 1; }
+.desk-alp__icon { background: none; border: 0; color: #b2b5be; font-size: 16px; width: 28px; height: 28px; border-radius: 4px; cursor: pointer; }
+.desk-alp__icon:hover { background: #2a2e39; color: #f0f3fa; }
+.desk-alp__list { flex: 1; min-height: 0; overflow-y: auto; }
+.desk-alp__row { position: relative; padding: 9px 12px; border-bottom: 1px solid #2a2e39; cursor: pointer; }
+.desk-alp__row:hover { background: #2a2e39; }
+.desk-alp__line1 { display: flex; align-items: baseline; gap: 8px; }
+.desk-alp__line1 b { color: #f0f3fa; }
+.desk-alp__cond { color: #b2b5be; font-variant-numeric: tabular-nums; flex: 1; }
+.desk-alp__time { color: #787b86; font-size: 11px; font-variant-numeric: tabular-nums; }
+.desk-alp__st { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 3px; text-transform: uppercase; }
+.desk-alp__st.is-active { color: #089981; background: rgba(8,153,129,.15); }
+.desk-alp__st.is-triggered { color: #f7c548; background: rgba(247,197,72,.12); }
+.desk-alp__st.is-stopped { color: #787b86; background: #2a2e39; }
+.desk-alp__line2 { margin-top: 3px; color: #d1d4dc; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.desk-alp__line3 { margin-top: 2px; color: #787b86; font-size: 11px; }
+.desk-alp__acts { position: absolute; right: 8px; bottom: 6px; display: none; gap: 2px; background: #2a2e39; }
+.desk-alp__row:hover .desk-alp__acts { display: flex; }
+.desk-alp__acts button { background: none; border: 0; color: #b2b5be; cursor: pointer; width: 24px; height: 22px; border-radius: 3px; }
+.desk-alp__acts button:hover { color: #f0f3fa; background: #363a45; }
+.desk-alp__empty { padding: 28px 16px; text-align: center; color: #787b86; line-height: 1.6; }
+.desk-alp__empty kbd { font: inherit; padding: 0 4px; border: 1px solid #434651; border-radius: 3px; }

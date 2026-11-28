@@ -41,6 +41,27 @@ A TradingView-style chart terminal on [Vela](https://vela.dev/) — free live cr
 | `lbank:GOLDUSDT.P` | GOLDUSDT USDT-M perpetual | OKX XAU-USDT-SWAP | LBank lastPrice 1s |
 | `lbank:XAUTUSDT` | Spot Tether Gold | LBank public klines | LBank WebSocket |
 
+## Price alerts
+
+**Alt+A**, the top-bar **Alert** button, or right-click the chart / price scale → *Add alert at this price…*. Conditions: Crossing, Crossing Up, Crossing Down, Greater Than, Less Than; trigger *Only once* or *Once per minute*; expiry (open-ended, 1 hour … 1 month); message; sound; desktop notification. Active alerts draw a dashed amber line with a 🔔 tag on the chart. When one fires: a popup (bottom right, with *Open chart*), a chime, and a desktop notification if allowed. The **Alerts** side panel lists alerts (stop / restart, edit, remove) and the **Log** of everything that fired. Prices come from every feed the app already runs (chart, watchlist, quotes) and a 4 s poll for symbols nothing else is pricing. Alerts run while the app is open in a browser tab; they are stored in localStorage (`chart-desk-alerts-v1`).
+
+## Screener
+
+Right sidebar → **Screener**: every LBank USDT perp, every Hyperliquid perp and Hyperliquid's commodities (gold, silver, oil…), with All / Top gainers / Top losers / Most active tabs, source chips, search, sortable columns, click to chart, + to add to the watchlist. US stock tokens are hidden. Refreshes every 10 s while open.
+
+## Order book
+
+Right sidebar → **Order Book**: the live book of the charted symbol (Hyperliquid, LBank or Coinbase; LBank perps without a public book use the same fallback as their history, shown in the header). Price grouping, cumulative depth bars, spread. Click a level to open the paper ticket with a limit at that price.
+
+## Strategy Tester
+
+Appears under the chart while a Pine `strategy()` runs: **Overview** (net profit, closed trades, percent profitable, profit factor, max drawdown, average trade, bars in trade, equity curve), **Performance Summary** (all / long / short, Sharpe, Sortino, buy & hold) and **List of trades** (click a trade to jump to it).
+
+## Chart extras
+
+- Bottom bar: **Go to** (calendar icon or **Alt+G**: a date, or a custom range; older history is loaded as needed) and the **%** / **log** / **auto** price-scale toggles.
+- Time-axis events: high- and medium-impact USD releases (and high-impact EUR/GBP/JPY/CNY) from the calendar, and your paper fills (B / S). Toggle each in chart settings → Events.
+
 ## Compare symbols
 
 Top bar → **Compare**. Search any symbol (or pick from your watchlist) and press Enter; add as many as you like, remove them from the same dialog or the legend. Each compared market is drawn over the price pane, rebased so every line starts together at the left edge of the view (TradingView's percent-compare look). The legend and the tag at the right edge show each one's % change since that point; scroll or zoom and the start point follows. Each compare is an indicator with a Symbol / Color / Line width setting, so it is saved with the chart and with layouts.
@@ -107,5 +128,12 @@ The production server serves `dist/` and proxies LBank REST/WebSocket (needed be
 | letter / `0` | Symbol search |
 | `1`–`9` | Timeframe entry |
 | Layout menu | Multi-chart grids (`2h`, `2v`, `4`, …) |
+| `Alt`+`A` | Create alert |
+| `Alt`+`G` | Go to date |
+| `Ctrl`+`S` | Save layout |
+| `Shift`+`B` / `Shift`+`S` | Paper buy / sell ticket |
+| `Alt`+`T` / `Alt`+`H` / `Alt`+`V` | Trend line / horizontal line / vertical line |
+| `Alt`+`S` | Screenshot |
+| `Alt`+`Enter` | Full screen |
 
 Pine Script® is a trademark of TradingView, Inc. Vela PineTS is AGPL-3.0.

@@ -9,6 +9,12 @@ import { registerPineEditor } from './panels/pine-editor';
 import { registerReplayAction } from './panels/replay';
 import { installCompareLegend, registerCompareAction, setCompareCharts } from './lib/compare';
 import { installLayouts, registerLayoutsAction } from './lib/layouts';
+import { installAlerts, registerAlerts } from './alerts/ui';
+import { installBottomBar } from './lib/bottombar';
+import { installEventMarks } from './lib/event-marks';
+import { registerScreenerPanel } from './panels/screener';
+import { registerOrderBookPanel } from './panels/orderbook';
+import { registerStrategyTester } from './trading/strategy-tester';
 import {
   bindDeskDrawOnMarketChange,
   displaySymbol,
@@ -31,6 +37,7 @@ import {
 } from './trading/positions-indicator';
 import { registerPaperTrading, startPaperPriceFeed } from './trading/trading-panel';
 import * as paper from './trading/paper-store';
+import * as alerts from './alerts/engine';
 import { onHlQuotes, startHlQuotes } from './lib/hl-quotes';
 import { installSymbolSearch } from './lib/symbol-search';
 import {
@@ -66,6 +73,10 @@ registerPineEditor();
 registerReplayAction();
 registerCompareAction();
 registerLayoutsAction();
+registerAlerts(() => wsRef);
+registerScreenerPanel();
+registerOrderBookPanel();
+registerStrategyTester(() => wsRef);
 registerViewportPersistence();
 registerSessionsIndicator();
 registerPositionsIndicator();
@@ -115,12 +126,12 @@ const ws = new VelaWorkspace('#chart', {
   },
   timeframes: ['1', '5', '15', '30', '60', '120', '240', '1D', '1W', '1M'],
   topbar: {
-    left: ['symbol', 'timeframes', 'style', 'indicators', 'desk.compare', 'layout', 'undo-redo'],
-    right: ['desk.layouts', 'desk.replay', 'actions', 'alerts', 'panels', 'screenshot', 'fullscreen'],
+    left: ['symbol', 'timeframes', 'style', 'indicators', 'desk.compare', 'desk.alert.topbar', 'layout', 'undo-redo'],
+    right: ['desk.layouts', 'desk.replay', 'actions', 'panels', 'screenshot', 'fullscreen'],
   },
   sidebar: {
     top: ['panels'],
-    bottom: ['desk.watchlist', 'desk.news', 'desk.pine', 'objects', 'dataWindow', '|', 'actions'],
+    bottom: ['desk.watchlist', 'desk.alerts', 'desk.screener', 'desk.orderbook', 'desk.news', 'desk.pine', 'objects', 'dataWindow', '|', 'actions'],
   },
   engines: {
     pine: () => new PineWorkerEngine(),
@@ -179,6 +190,9 @@ startPaperPriceFeed(ws);
 installLayouts(ws);
 setCompareCharts(() => ws.cells().map((c) => c.chart));
 installCompareLegend(() => ws.chart);
+installAlerts(ws);
+installBottomBar(ws);
+installEventMarks(ws);
 
 // Warm cache gently after first paint (avoid HL 429 on boot)
 window.setTimeout(() => {
@@ -195,6 +209,7 @@ const deskApi = {
   ws,
   draw: (coin = 'GOLD') => loadAndDrawDesk(ws, coin),
   paper,
+  alerts,
 };
 (window as unknown as { __chartDesk: typeof deskApi }).__chartDesk = deskApi;
 

@@ -1,0 +1,239 @@
+/* Order Book (DOM) side panel — TradingView dark palette. */
+.desk-ob {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #1e222d;
+  color: #d1d4dc;
+  font-size: 12px;
+  min-height: 0;
+  user-select: none;
+}
+
+.desk-ob__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #2a2e39;
+  flex: none;
+}
+.desk-ob__title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.desk-ob__sym {
+  color: #f0f3fa;
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.desk-ob__venue {
+  color: #787b86;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.desk-ob__venue.is-mapped {
+  color: #f0b90b;
+}
+.desk-ob__group select {
+  background: #2a2e39;
+  color: #d1d4dc;
+  border: 1px solid #363a45;
+  border-radius: 4px;
+  padding: 3px 4px;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.desk-ob__group select:focus-visible {
+  outline: 1px solid #2962ff;
+}
+
+.desk-ob__cols,
+.desk-ob__row {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr 1fr;
+  padding: 0 10px;
+  gap: 4px;
+}
+.desk-ob__cols {
+  flex: none;
+  color: #787b86;
+  font-size: 11px;
+  line-height: 22px;
+  border-bottom: 1px solid #2a2e39;
+}
+.desk-ob__cols span:not(:first-child),
+.desk-ob__row span:not(:first-child) {
+  text-align: right;
+}
+
+.desk-ob__side {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.desk-ob__side--asks {
+  justify-content: flex-end;
+}
+
+.desk-ob__row {
+  position: relative;
+  height: 19px;
+  line-height: 19px;
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.desk-ob__row span {
+  position: relative;
+  z-index: 1;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.desk-ob__row:hover {
+  background: #2a2e39;
+}
+.desk-ob__row:hover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-top: 1px dashed #787b86;
+  pointer-events: none;
+}
+.desk-ob__side--bids .desk-ob__row:hover::after {
+  border-top: none;
+  border-bottom: 1px dashed #787b86;
+}
+.desk-ob__bar {
+  position: absolute;
+  right: 0;
+  top: 1px;
+  bottom: 1px;
+  pointer-events: none;
+}
+.desk-ob__side--asks .desk-ob__bar {
+  background: rgba(242, 54, 69, 0.14);
+}
+.desk-ob__side--bids .desk-ob__bar {
+  background: rgba(8, 153, 129, 0.16);
+}
+.desk-ob__side--asks .desk-ob__bar--lvl {
+  background: rgba(242, 54, 69, 0.22);
+}
+.desk-ob__side--bids .desk-ob__bar--lvl {
+  background: rgba(8, 153, 129, 0.26);
+}
+.desk-ob__side--asks .desk-ob__px {
+  color: #f23645;
+}
+.desk-ob__side--bids .desk-ob__px {
+  color: #089981;
+}
+.desk-ob__row.has-order {
+  box-shadow: inset 2px 0 0 #2962ff;
+}
+.desk-ob__mine {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 0 3px;
+  border-radius: 2px;
+  font-size: 10px;
+  line-height: 14px;
+  color: #fff;
+  background: #2962ff;
+  vertical-align: 1px;
+}
+.desk-ob__mine.is-sell {
+  background: #f23645;
+}
+.desk-ob__mine.is-buy {
+  background: #089981;
+}
+
+.desk-ob__mid {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-top: 1px solid #2a2e39;
+  border-bottom: 1px solid #2a2e39;
+  background: #1a1e29;
+  min-height: 32px;
+  box-sizing: border-box;
+}
+.desk-ob__midpx {
+  font-size: 15px;
+  font-weight: 600;
+  color: #f0f3fa;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.desk-ob__midpx.is-up {
+  color: #089981;
+}
+.desk-ob__midpx.is-down {
+  color: #f23645;
+}
+.desk-ob__spread {
+  color: #787b86;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.desk-ob__empty {
+  color: #787b86;
+  font-size: 12px;
+}
+
+.desk-ob__ratio {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 2px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.desk-ob__ratio:empty {
+  display: none;
+}
+.desk-ob__ratio .is-buy {
+  color: #089981;
+}
+.desk-ob__ratio .is-sell {
+  color: #f23645;
+}
+.desk-ob__ratiobar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: #f23645;
+  overflow: hidden;
+}
+.desk-ob__ratiobar i {
+  display: block;
+  height: 100%;
+  background: #089981;
+}
+
+.desk-ob__foot {
+  flex: none;
+  padding: 4px 10px 6px;
+  color: #787b86;
+  font-size: 10.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

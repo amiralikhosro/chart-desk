@@ -68,6 +68,13 @@ const HISTORY_CAP = 500;
 type Listener = () => void;
 
 const listeners = new Set<Listener>();
+const priceListeners = new Set<(symbol: string, price: number) => void>();
+
+/** Every live price the app sees (chart ticks, quotes): alerts hang off this feed. */
+export function onAnyPrice(fn: (symbol: string, price: number) => void): () => void {
+  priceListeners.add(fn);
+  return () => priceListeners.delete(fn);
+}
 const lastPrices = new Map<string, number>();
 let account: PaperAccount = load();
 
@@ -294,6 +301,7 @@ export function onPrice(symbol: string, price: number): void {
   if (!Number.isFinite(price) || price <= 0) return;
   const prev = lastPrices.get(symbol);
   lastPrices.set(symbol, price);
+  for (const fn of priceListeners) fn(symbol, price);
   let mutated = false;
 
   for (const o of [...account.orders]) {
