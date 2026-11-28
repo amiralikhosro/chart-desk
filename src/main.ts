@@ -1,7 +1,6 @@
 import './style.css';
 import { VelaWorkspace } from '@luxalgo/vela/workspace';
 import { PineWorkerEngine } from '@luxalgo/vela-pinets';
-import { registerSymbolRanking } from '@luxalgo/vela/plugin';
 import { DEFAULT_INDICATORS } from './indicators';
 import { tradingViewTheme } from './theme/tradingview';
 import { registerWatchlistPanel } from './panels/watchlist';
@@ -30,6 +29,7 @@ import {
 import { registerPaperTrading, startPaperPriceFeed } from './trading/trading-panel';
 import * as paper from './trading/paper-store';
 import { onHlQuotes, startHlQuotes } from './lib/hl-quotes';
+import { installSymbolSearch } from './lib/symbol-search';
 import {
   getWatchlist,
   onWatchlistChange,
@@ -66,22 +66,8 @@ registerPositionsIndicator();
 let wsRef: VelaWorkspace | null = null;
 registerPaperTrading(() => wsRef);
 
-// Pin desk symbols at the top of symbol search
-registerSymbolRanking((pool) => {
-  const order = getWatchlist().map((w) => w.symbol.toLowerCase());
-  const rank = (ticker: string, provider?: string) => {
-    const qualified = `${provider ?? 'hyperliquid'}:${ticker}`.toLowerCase();
-    const exact = order.indexOf(qualified);
-    if (exact >= 0) return exact;
-    const byTicker = order.findIndex(
-      (s) => s === ticker.toLowerCase() || s.endsWith(`:${ticker.toLowerCase()}`),
-    );
-    return byTicker >= 0 ? byTicker : 1_000;
-  };
-  return [...pool].sort(
-    (a, b) => rank(a.ticker, a.provider) - rank(b.ticker, b.provider),
-  );
-});
+// TradingView-style search: source chips + same-coin grouping across venues
+installSymbolSearch();
 
 const hlProvider = new CachedHyperliquidProvider();
 const lbankProvider = new LBankProvider();

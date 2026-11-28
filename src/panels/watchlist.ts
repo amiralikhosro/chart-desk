@@ -10,6 +10,23 @@ import {
 import { onHlQuotes, startHlQuotes } from '../lib/hl-quotes';
 import { fetchLbankQuote } from '../providers/lbank';
 import { mountSymbolDetails } from './symbol-details';
+import { onPrice } from '../trading/paper-store';
+
+/** Coinbase Exchange 24h stats → last price + change since the 24h open. */
+async function fetchCoinbaseQuote(symbol: string): Promise<{ price: number; changePct: number } | null> {
+  try {
+    const id = symbol.slice(symbol.indexOf(':') + 1).toUpperCase();
+    const res = await fetch(`https://api.exchange.coinbase.com/products/${encodeURIComponent(id)}/stats`);
+    if (!res.ok) return null;
+    const j = (await res.json()) as { open?: string; last?: string };
+    const price = Number(j.last);
+    const open = Number(j.open);
+    if (!(price > 0)) return null;
+    return { price, changePct: open > 0 ? ((price - open) / open) * 100 : 0 };
+  } catch {
+    return null;
+  }
+}
 import {
   addSection,
   addWatchItem,
@@ -367,7 +384,16 @@ export function registerWatchlistPanel(): void {
         if (!item) return;
         const priceEl = li.querySelector('.desk-watch__price') as HTMLElement;
         const chgEl = li.querySelector('.desk-watch__chg') as HTMLElement;
+        const prevPrice = Number(priceEl.dataset.v);
         priceEl.textContent = formatPrice(q.price);
+        priceEl.dataset.v = String(q.price);
+        if (Number.isFinite(prevPrice) && prevPrice > 0 && prevPrice !== q.price) {
+          // TradingView-style tick flash
+          priceEl.classList.remove('is-flash-up', 'is-flash-down');
+          void priceEl.offsetWidth;
+          priceEl.classList.add(q.price > prevPrice ? 'is-flash-up' : 'is-flash-down');
+        }
+        onPrice(symbol, q.price);
         const sign = q.changePct > 0 ? '+' : '';
         chgEl.textContent = `${sign}${q.changePct.toFixed(2)}%`;
         chgEl.dataset.dir = q.changePct >= 0 ? 'up' : 'down';
@@ -513,6 +539,24 @@ export function registerWatchlistPanel(): void {
         }
       };
 
+      const iconHtml = (item: WatchItem): string => {
+        let url: string | undefined;
+        try {
+          url = ctx.chart.data.symbolIcon(item.symbol);
+        } catch {
+          url = undefined;
+        }
+        if (!url) {
+          const base = item.label.toUpperCase().replace(/(\.P|-[A-Z]+|USDT|USDC)$/, '');
+          const coin = base === 'GOLD' || base === 'XAU' ? 'PAXG' : base;
+          if (/^[A-Z0-9]{2,10}$/.test(coin)) url = `https://crypto-icons.ledger.com/${coin}.png`;
+        }
+        const initials = escapeAttr(item.label.replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase());
+        return url
+          ? `<img class="desk-watch__icon" src="${escapeAttr(url)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'desk-watch__icon desk-watch__icon--txt',textContent:'${initials}'}))" />`
+          : `<span class="desk-watch__icon desk-watch__icon--txt">${initials}</span>`;
+      };
+
       const buildSymbolRow = (item: WatchItem, index: number): HTMLLIElement => {
         const li = document.createElement('li');
         li.className = 'desk-watch__row';
@@ -525,6 +569,7 @@ export function registerWatchlistPanel(): void {
         li.innerHTML = `
           <div class="desk-watch__sym">
             <span class="desk-watch__label-row">
+              ${iconHtml(item)}
               <span class="desk-watch__label">${escapeAttr(item.label)}</span>
               <span class="desk-watch__badge" data-kind="none">—</span>
             </span>
@@ -650,11 +695,15 @@ export function registerWatchlistPanel(): void {
       };
 
       const refreshLbankQuote = async () => {
-        const items = getWatchlist().filter((w) => w.quote === 'lbank');
+        const items = getWatchlist().filter(
+          (w) => w.quote === 'lbank' || w.symbol.toLowerCase().startsWith('coinbase:'),
+        );
         if (!items.length) return;
         await Promise.all(
           items.map(async (w) => {
-            const q = await fetchLbankQuote(w.symbol);
+            const q = w.symbol.toLowerCase().startsWith('coinbase:')
+              ? await fetchCoinbaseQuote(w.symbol)
+              : await fetchLbankQuote(w.symbol);
             if (q) paintQuote(w.symbol, q);
           }),
         );
@@ -898,6 +947,8 @@ export function registerWatchlistPanel(): void {
         onChart: (chart) => {
           offDetails?.();
           offDetails = mountSymbolDetails(detailsHost, () => chart);
+          // Icons resolve through the provider index: repaint once it has landed.
+          void chart.data.ready().then(() => renderList());
           unsubMarket?.();
           syncActive();
           unsubMarket = chart.on('market:changed', () => {

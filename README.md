@@ -17,6 +17,23 @@ A TradingView-style chart terminal on [Vela](https://vela.dev/) — free live cr
 - **Position lines** — avg price with live P&L, TP, SL and working orders drawn on the chart with tags
 - **Symbol details** under the watchlist — last price, change, day's range, volume, prev close, 1W / 1M / 3M / 6M / YTD / 1Y performance
 
+## LBank sync
+
+| | Spot (`lbank:BTCUSDT`) | Perpetual (`lbank:BTCUSDT.P`, ~840 listed) |
+|---|---|---|
+| History | LBank klines, paged forward 2000 bars a call | same coin's LBank spot klines, else Hyperliquid (gold: OKX XAU-USDT-SWAP → HL xyz:GOLD) |
+| Live | LBank WebSocket `kbar` (true OHLCV) + `tick` between kbars; REST polling only if the socket stalls | one shared poll of LBank perp `marketData` per second; volume = growth of the 24h counter |
+| Buckets | LBank's UTC+8 calendar (daily bars open 16:00 UTC) | same |
+
+2h is built from 1h (LBank REST has no 2h klines; the socket does).
+
+**Docker:** the container runs with `network_mode: host` so the LBank / OKX proxy uses the host's route (VPN). A bridged container times out on LBank.
+
+## Symbol search
+
+- Source chips under the category tabs: **All sources · Hyperliquid · LBank · Coinbase** (remembered; typing `lbank btc` does the same)
+- Same coin grouped across venues: watchlist first, majors, USD/USDT quotes, perps before spot, lookalikes last
+
 ## Gold on LBank
 
 | Symbol | What it is | History | Live |

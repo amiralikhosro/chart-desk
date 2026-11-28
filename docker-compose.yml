@@ -3,11 +3,12 @@ services:
     build: .
     image: chart-desk:0.1.0
     container_name: chart-desk
-    ports:
-      - "${PORT:-4173}:4173"
+    # Host networking: the LBank/OKX proxy must leave through the host's own route
+    # (VPN tunnel). Bridged containers bypass it and LBank connections time out.
+    network_mode: host
     environment:
       HOST: 0.0.0.0
-      PORT: 4173
+      PORT: ${PORT:-4173}
       DESK_DATA_DIR: /app/data
       DESK_TOKEN: ${DESK_TOKEN:-}
     volumes:

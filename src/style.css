@@ -1042,3 +1042,48 @@ body {
 .desk-perf.is-down { background: rgba(242, 54, 69, 0.16); }
 .desk-perf.is-up b { color: #089981; }
 .desk-perf.is-down b { color: #f23645; }
+
+/* ================================================================
+ * Symbol search — source chips (TradingView "All sources")
+ * ================================================================ */
+.desk-sp-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 0 4px;
+}
+.desk-sp-sources button {
+  border: 1px solid #363a45;
+  background: transparent;
+  color: #b2b5be;
+  border-radius: 14px;
+  padding: 3px 12px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.desk-sp-sources button:hover { background: #2a2e39; color: #f0f3fa; }
+.desk-sp-sources button.is-active { background: #2962ff; border-color: #2962ff; color: #fff; }
+
+/* Watchlist icons + tick flash */
+.desk-watch__icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex: none;
+  object-fit: cover;
+  background: #2a2e39;
+}
+.desk-watch__icon--txt {
+  display: inline-grid;
+  place-items: center;
+  font-size: 8px;
+  font-weight: 700;
+  color: #d1d4dc;
+  background: #363a45;
+}
+@keyframes desk-flash-up { from { background: rgba(8, 153, 129, 0.35); } to { background: transparent; } }
+@keyframes desk-flash-down { from { background: rgba(242, 54, 69, 0.35); } to { background: transparent; } }
+.desk-watch__price { border-radius: 3px; }
+.desk-watch__price.is-flash-up { animation: desk-flash-up 0.7s ease-out; }
+.desk-watch__price.is-flash-down { animation: desk-flash-down 0.7s ease-out; }
